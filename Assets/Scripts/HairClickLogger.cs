@@ -106,7 +106,7 @@ public class HairClickLogger : MonoBehaviour
             Collider col = _hits[i].collider;
             if (col != null && col.CompareTag(hairTag))
             {
-                if (_found.Add(col.gameObject.GetInstanceID()))
+                if (_found.Add(col.gameObject.GetHashCode()))
                 {
                     string name = NextName();
                     Debug.Log("find hair! : " + name);
