@@ -145,11 +145,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e949ea86ee91d4f4eb639a313f3d1b96, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -1.4528
+      value: -1.45
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e949ea86ee91d4f4eb639a313f3d1b96, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.16112
+      value: -3.44
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: e949ea86ee91d4f4eb639a313f3d1b96, type: 3}
       propertyPath: m_LocalRotation.w
@@ -291,14 +291,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 884434719}
   m_Enabled: 1
-  serializedVersion: 11
+  serializedVersion: 13
   m_Type: 1
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
   m_Intensity: 1.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 2
     m_Resolution: -1
@@ -343,7 +343,7 @@ Light:
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
-  m_ShadowRadius: 0
+  m_ShapeRadius: 0
   m_ShadowAngle: 0
   m_LightUnit: 1
   m_LuxAtDistance: 1
@@ -506,7 +506,10 @@ MonoBehaviour:
   target: {fileID: 779939251}
   sensitivityH: 1
   sensitivityV: 1
+  zoomSensitivity: 1
   distance: 3
+  minDistance: 0.5
+  maxDistance: 10
   verticalOffset: 0.5
 --- !u!114 &1149843482
 MonoBehaviour:
