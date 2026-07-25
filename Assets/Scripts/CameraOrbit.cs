@@ -8,12 +8,21 @@ public class CameraOrbit : MonoBehaviour
     public float sensitivityV = 0.1f;
     public float zoomSensitivity = 0.01f;
     public float distance = 3f;
-    public float minDistance = 0.5f;
     public float maxDistance = 10f;
     public float verticalOffset = 0f;
 
-    private float azimuth = 0f;
-    private float elevation = 0f;
+    [Header("Scene Transition")]
+    public float transitionDistance = 2.5f;
+    public string transitionScene = "ScalpScene";
+    public string backTransitionScene = "";
+
+    private bool transitioning = false;
+
+    public float initialAzimuth = 0f;
+    public float initialElevation = 0f;
+
+    private float azimuth;
+    private float elevation;
     private Vector3 pivotPoint;
 
     void Start()
@@ -24,15 +33,35 @@ public class CameraOrbit : MonoBehaviour
             if (go != null) target = go.transform;
         }
 
+        azimuth = initialAzimuth;
+        elevation = initialElevation;
+
+        if (SceneTransitioner.Instance != null && SceneTransitioner.Instance.savedDistance > 0f)
+        {
+            distance  = SceneTransitioner.Instance.savedDistance;
+            azimuth   = SceneTransitioner.Instance.savedAzimuth;
+            elevation = SceneTransitioner.Instance.savedElevation;
+            SceneTransitioner.Instance.savedDistance = -1f;
+        }
+
         UpdatePivot();
     }
+
+    public bool useBoundsCenter = true;
 
     void UpdatePivot()
     {
         if (target == null) return;
 
-        var renderer = target.GetComponentInChildren<Renderer>();
-        pivotPoint = renderer != null ? renderer.bounds.center : target.position;
+        if (useBoundsCenter)
+        {
+            var r = target.GetComponentInChildren<Renderer>();
+            pivotPoint = r != null ? r.bounds.center : target.position;
+        }
+        else
+        {
+            pivotPoint = target.position;
+        }
         pivotPoint += Vector3.up * verticalOffset;
     }
 
@@ -46,7 +75,22 @@ public class CameraOrbit : MonoBehaviour
         if (ctrl)
         {
             distance -= scroll.y * zoomSensitivity;
-            distance = Mathf.Clamp(distance, minDistance, maxDistance);
+            distance = Mathf.Clamp(distance, transitionDistance, maxDistance);
+
+            if (!transitioning && !string.IsNullOrEmpty(transitionScene) && distance <= transitionDistance)
+            {
+                transitioning = true;
+                var t = SceneTransitioner.Get();
+                t.savedDistance  = distance;
+                t.savedAzimuth   = azimuth;
+                t.savedElevation = elevation;
+                t.TransitionTo(transitionScene);
+            }
+            if (!transitioning && !string.IsNullOrEmpty(backTransitionScene) && distance >= maxDistance)
+            {
+                transitioning = true;
+                SceneTransitioner.Get().TransitionTo(backTransitionScene);
+            }
         }
         else
         {
@@ -66,6 +110,8 @@ public class CameraOrbit : MonoBehaviour
 
         transform.position = pivotPoint + offset;
         transform.LookAt(pivotPoint);
+
+        Debug.Log($"dist={distance:F2} az={azimuth:F1} el={elevation:F1} pivot={pivotPoint}");
     }
 
     void OnGUI()
