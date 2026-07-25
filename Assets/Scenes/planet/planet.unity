@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 868333705}
   - component: {fileID: 868333704}
   - component: {fileID: 868333703}
+  - component: {fileID: 868333706}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -211,6 +212,50 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &868333706
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 868333702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 2
+  m_RequiresOpaqueTextureOption: 2
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 0}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 0
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 1
+  m_AllowHDROutput: 1
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_TaaSettings:
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!1 &1694098673
 GameObject:
   m_ObjectHideFlags: 0
@@ -242,9 +287,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlanetController
   globeRadius: 3
   lineColor: {r: 0, g: 0, b: 0, a: 1}
-  meridianCount: 6
-  parallelCount: 5
-  lineWidth: 0.025
+  meridianCount: 0
+  parallelCount: 0
+  lineWidth: 0
   textureWidth: 640
   continentFreq: 2
   seaLevel: 0.52
@@ -261,10 +306,9 @@ MonoBehaviour:
   headColor: {r: 0.98, g: 0.8, b: 0.66, a: 1}
   headSeed: 12345
   headHairCount: 45
-  blondeColor: {r: 0.86, g: 0.72, b: 0.36, a: 1}
-  whiteColor: {r: 0.9, g: 0.9, b: 0.92, a: 1}
-  brownColor: {r: 0.34, g: 0.21, b: 0.11, a: 1}
-  blackColor: {r: 0.07, g: 0.07, b: 0.08, a: 1}
+  faceYawOffset: 0
+  hairColor: {r: 0.07, g: 0.07, b: 0.08, a: 1}
+  hairGloss: 0.5
   shedInterval: 0.6
   hairThickness: 0.009
   hairLength: 0.22
