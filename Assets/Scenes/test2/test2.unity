@@ -119,6 +119,77 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &47268578
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 47268580}
+  - component: {fileID: 47268579}
+  m_Layer: 0
+  m_Name: WeatherManager_Script2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &47268579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 47268578}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c192ca91c3094514aad19bb8147ab37, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Script2
+  currentWeather: 0
+  enableKeyboardShortcuts: 1
+  transitionSpeed: 0.8
+  sunLight: {fileID: 0}
+  hairTarget: {fileID: 0}
+  scalpRenderer: {fileID: 0}
+  targetCamera: {fileID: 0}
+  baseSwayAmplitudeDeg: 3
+  baseSwayFrequency: 0.6
+  sunnyIntensityMultiplier: 1.6
+  sunnyLightColor: {r: 1, g: 0.95, b: 0.82, a: 1}
+  sunburnColor: {r: 0.78, g: 0.24, b: 0.18, a: 1}
+  sunburnBuildSeconds: 10
+  sunburnFadeSpeed: 0.05
+  rainLightColor: {r: 0.62, g: 0.68, b: 0.78, a: 1}
+  rainIntensityMultiplier: 0.5
+  wetDroopAngleDeg: 22
+  wetSwayDamp: 0.2
+  rainParticleCount: 400
+  rainAreaSize: 6
+  rainFallSpeed: 9
+  typhoonLightColor: {r: 0.5, g: 0.55, b: 0.55, a: 1}
+  typhoonIntensityMultiplier: 0.55
+  typhoonSwayAmplitudeDeg: 26
+  typhoonSwayFrequency: 3.2
+  windParticleCount: 250
+  windFallSpeed: 14
+--- !u!4 &47268580
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 47268578}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &225937749
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -562,3 +633,4 @@ SceneRoots:
   - {fileID: 1149843480}
   - {fileID: 884434721}
   - {fileID: 225937749}
+  - {fileID: 47268580}
