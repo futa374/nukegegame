@@ -111,7 +111,6 @@ public class CameraOrbit : MonoBehaviour
         transform.position = pivotPoint + offset;
         transform.LookAt(pivotPoint);
 
-        Debug.Log($"dist={distance:F2} az={azimuth:F1} el={elevation:F1} pivot={pivotPoint}");
     }
 
     void OnGUI()
