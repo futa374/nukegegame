@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ScreenSpaceLensFlare
   active: 1
   intensity:
-    m_OverrideState: 0
-    m_Value: 0
+    m_OverrideState: 1
+    m_Value: 10
   tintColor:
     m_OverrideState: 0
     m_Value: {r: 1, g: 1, b: 1, a: 1}
@@ -23,7 +23,7 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 1
   firstFlareIntensity:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 1
   secondaryFlareIntensity:
     m_OverrideState: 0
@@ -41,8 +41,8 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0.5
   vignetteEffect:
-    m_OverrideState: 0
-    m_Value: 1
+    m_OverrideState: 1
+    m_Value: 0.901
   startingPosition:
     m_OverrideState: 0
     m_Value: 1.25
@@ -53,8 +53,8 @@ MonoBehaviour:
     m_OverrideState: 0
     m_Value: 0
   streaksLength:
-    m_OverrideState: 0
-    m_Value: 0.5
+    m_OverrideState: 1
+    m_Value: 0.014
   streaksOrientation:
     m_OverrideState: 0
     m_Value: 0
@@ -98,7 +98,7 @@ MonoBehaviour:
   active: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 0.24
 --- !u!114 &819044277245530724
 MonoBehaviour:
   m_ObjectHideFlags: 3

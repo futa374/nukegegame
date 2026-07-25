@@ -61,6 +61,23 @@ public class PlanetController : MonoBehaviour
     public Color backgroundColor = new Color(0.22f, 0.22f, 0.23f);
     public float cameraDistance = 8.5f;
 
+    [Header("既存シーン連携")]
+    [Tooltip("falseにすると地球の生成をスキップ。既存の地球オブジェクトをそのまま使う。")]
+    public bool buildGlobe = true;
+
+    [Header("毛の再生")]
+    public float regrowDelay = 5f;  // ハゲてから再生までの秒数
+
+    [Header("花粉・チリ")]
+    public int   dustCount   = 80;
+    public int   pollenCount = 40;
+    public Color dustColor   = new Color(0.55f, 0.50f, 0.45f);
+    public Color pollenColor = new Color(0.95f, 0.85f, 0.10f);
+
+    static readonly string[] _namePool = {
+        "KENJI","MOWRY","FUTA","TAKASHI","TAROU","SAORI","HITOMI","MEGUMI"
+    };
+
     Transform _gridRoot;
     Transform _hairsRoot;
     Material _hairMat;
@@ -68,30 +85,77 @@ public class PlanetController : MonoBehaviour
     readonly List<OrbitingHead> _heads = new List<OrbitingHead>();
     readonly List<float> _shedTimers = new List<float>();
     readonly List<float> _shedIntervals = new List<float>();
+    readonly List<float> _regrowTimers = new List<float>();
     readonly List<PlanetHair> _hairs = new List<PlanetHair>();
 
     void Start()
     {
         if (setupCamera) SetupCameraAndLight();
-        BuildGlobe();
+        if (buildGlobe) BuildGlobe();
         BuildHairPalette();
         BuildHeads();
         var hr = new GameObject("Hairs").transform;
         hr.SetParent(transform, false);
         _hairsRoot = hr;
+        SpawnDebris();
+    }
+
+    void SpawnDebris()
+    {
+        var root = new GameObject("Debris").transform;
+        root.SetParent(transform, false);
+
+        var dustMat   = MakeMaterial(dustColor,   false, null);
+        var pollenMat = MakeMaterial(pollenColor, false, null);
+
+        float minR = globeRadius * 1.05f;
+        float maxR = globeRadius + orbitHeight * 1.8f;
+
+        for (int i = 0; i < dustCount; i++)
+            DustParticle.Spawn(root, transform.position, Random.Range(minR, maxR),
+                               DustParticle.Kind.Dust, dustMat);
+        for (int i = 0; i < pollenCount; i++)
+            DustParticle.Spawn(root, transform.position, Random.Range(minR, maxR),
+                               DustParticle.Kind.Pollen, pollenMat);
     }
 
     void Update()
     {
         for (int i = 0; i < _heads.Count; i++)
         {
-            _shedTimers[i] += Time.deltaTime;
-            if (_shedTimers[i] >= _shedIntervals[i])
+            var head = _heads[i];
+            if (head == null) continue;
+
+            if (head.HasHair)
             {
-                _shedTimers[i] -= _shedIntervals[i];
-                Shed(_heads[i]);
+                // 毛がある → 通常の抜け落ちサイクル
+                _regrowTimers[i] = regrowDelay;
+                _shedTimers[i] += Time.deltaTime;
+                if (_shedTimers[i] >= _shedIntervals[i])
+                {
+                    _shedTimers[i] -= _shedIntervals[i];
+                    Shed(head);
+                }
+            }
+            else
+            {
+                // ハゲ → 再生カウントダウン
+                _regrowTimers[i] -= Time.deltaTime;
+                if (_regrowTimers[i] <= 0f)
+                {
+                    RegrowHair(head);
+                    _shedTimers[i] = 0f;
+                }
             }
         }
+    }
+
+    void RegrowHair(OrbitingHead head)
+    {
+        foreach (var h in head.scalpHairs)
+            if (h != null) Destroy(h);
+        head.scalpHairs.Clear();
+        BuildScalpHair(head.transform, head, _hairMat);
     }
 
     void Shed(OrbitingHead head)
@@ -108,6 +172,8 @@ public class PlanetController : MonoBehaviour
         var go = new GameObject("Hair");
         go.transform.SetParent(_hairsRoot, false);
         var hair = go.AddComponent<PlanetHair>();
+        hair.ownerName       = head.personName;
+        hair.birthTimeString = GameClock.Instance != null ? GameClock.Instance.TimeString : "Unknown";
         Vector3 axis = Random.onUnitSphere;
         float drift = Random.Range(driftSpeedMin, driftSpeedMax);
         hair.Init(center, globeRadius + 0.12f, spawn, head.hairMat,
@@ -288,7 +354,9 @@ public class PlanetController : MonoBehaviour
             oh.speedDeg = orbitSpeedDeg * Random.Range(0.7f, 1.3f) * dir;
             oh.angleDeg = Random.Range(0f, 360f);
 
-            oh.hairMat = _hairMat;
+            oh.hairMat    = _hairMat;
+            oh.personName = _namePool[i % _namePool.Length];
+            oh.personAge  = Random.Range(18, 81);
 
             BuildHeadModel(hgo.transform);
             BuildScalpHair(hgo.transform, oh, _hairMat);
@@ -296,6 +364,7 @@ public class PlanetController : MonoBehaviour
             _heads.Add(oh);
             _shedIntervals.Add(shedInterval * Random.Range(0.8f, 1.3f));
             _shedTimers.Add(Random.Range(0f, shedInterval));
+            _regrowTimers.Add(regrowDelay);
         }
         Random.state = prev;
     }
@@ -308,7 +377,7 @@ public class PlanetController : MonoBehaviour
         // 顔テクスチャ（青を除いた顔）を球に貼る。無ければ肌色。鼻は無し。
         Material headMat = _faceTex != null ? MakeMaterial(Color.white, false, _faceTex)
                                             : MakeMaterial(headColor, false, null);
-        Strip(skull);
+        // SphereColliderはクリック検出のために残す（Stripしない）
         skull.GetComponent<MeshRenderer>().sharedMaterial = headMat;
         skull.transform.localRotation = Quaternion.Euler(0f, faceYawOffset, 0f);
     }
