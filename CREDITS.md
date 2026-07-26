@@ -34,6 +34,16 @@ NASA Blue Marble Next Generation（2004年1月、地形・海底地形入り）�
 `Assets/Models/EARTH.fbx`（Surface / Clouds / Atom の三層構造）。
 外部から提供されたモデル。配布元の利用条件は各自で確認のこと。
 
+## 頭部モデルと顔テクスチャ（planetReal シーン）
+
+門田本人の3Dスキャン（`monden_head_noneck.stl`、96,614頂点）を13,317頂点へ間引いたもの。
+眼鏡フレームはスキャンから面を切り出し、別メッシュ（`Assets/Models/monden_glasses.obj`）にしている。
+
+顔のアルベドは本人の正面写真を投影して作成。撮影時の照明・皮脂の照り返しは
+除去してあり、陰影は法線マップと AO マップで付け直している。
+元データ（高解像度スキャンと写真）はリポジトリに含めていない。
+生成の手順は `Tools/facegen/README.md`。
+
 ## 音声
 
 `Assets/Audio/monden_voice_huhuhu` / `morita_voice_uri` は本人による録音。

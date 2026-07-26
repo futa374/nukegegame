@@ -27,6 +27,8 @@ public class PlanetRealGlobe : MonoBehaviour
     public bool matchPlanetController = true;
 
     [Header("差し替え")]
+    [Tooltip("地球を出す。切ると簡易球もモデルも出ず、頭だけが残る（頭の造形を詰めるとき用）。")]
+    public bool showEarth = true;
     [Tooltip("PlanetController が作る簡易球を隠す")]
     public bool hideProceduralGlobe = true;
     [Tooltip("緯線・経線を隠す（実写寄りにするなら消す）")]
@@ -115,7 +117,7 @@ public class PlanetRealGlobe : MonoBehaviour
     /// </summary>
     void OnGUI()
     {
-        if (!showAttribution) return;
+        if (!showAttribution || !showEarth) return;   // 地球を出していなければ出典も要らない
 
         if (_attributionStyle == null)
             _attributionStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.LowerLeft, wordWrap = false };
@@ -151,12 +153,15 @@ public class PlanetRealGlobe : MonoBehaviour
             }
         }
 
-        if (hideProceduralGlobe && procedural != null) procedural.gameObject.SetActive(false);
-        if (hideGrid && grid != null) grid.gameObject.SetActive(false);
+        // 地球を出さないときは、向こうが作った簡易球も緯線も含めて全部伏せる
+        if (procedural != null) procedural.gameObject.SetActive(showEarth && !hideProceduralGlobe);
+        if (grid != null) grid.gameObject.SetActive(showEarth && !hideGrid);
 
-        BuildModel();
-
-        if (useLiveClouds && cloudTexture == null) StartCoroutine(FetchLiveClouds());
+        if (showEarth)
+        {
+            BuildModel();
+            if (useLiveClouds && cloudTexture == null) StartCoroutine(FetchLiveClouds());
+        }
 
         if (setSpaceBackground)
         {

@@ -60,3 +60,6 @@ ExportedObj/
 
 # Unity3D Generated File On Crash Reports
 crashlytics-build.properties
+
+# 作業中の確認用スクリーンショット（成果物ではない）
+/Assets/Screenshots/
