@@ -1,12 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// 地球(center)の周りを、ひとつの大円に沿って旋回する頭。顔(+Z)は進行方向を向く。
-/// 頭には毛(scalpHairs)が生えており、抜けるほど（RemoveOneHair）ハゲていく。
-/// 頭ごとに毛の色(hairMat)と形(hairStyle)を持ち、落ちる毛もそれに揃える。
-/// PlanetController が生成・設定する。
-/// </summary>
 public class OrbitingHead : MonoBehaviour
 {
     public Vector3 center;
@@ -15,13 +9,18 @@ public class OrbitingHead : MonoBehaviour
     public float speedDeg = 25f;
     public float angleDeg = 0f;
 
-    // 毛（頭と落ちる毛で共有）
     public Material hairMat;
 
     [System.NonSerialized] public List<GameObject> scalpHairs = new List<GameObject>();
     public bool HasHair { get { return scalpHairs.Count > 0; } }
 
+    [System.NonSerialized] public string personName = "Unknown";
+    [System.NonSerialized] public int    personAge  = 30;
+
     Vector3 _b1, _b2;
+
+    readonly List<GameObject> _outlineObjects = new List<GameObject>();
+    bool _outlined;
 
     void Start() { SetupBasis(); Place(); }
 
@@ -49,7 +48,6 @@ public class OrbitingHead : MonoBehaviour
         transform.rotation = Quaternion.LookRotation(vel, up);
     }
 
-    /// <summary>頭の毛を一本抜く。抜けたら true、もうハゲなら false。</summary>
     public bool RemoveOneHair()
     {
         while (scalpHairs.Count > 0)
@@ -60,5 +58,32 @@ public class OrbitingHead : MonoBehaviour
             if (g != null) { Destroy(g); return true; }
         }
         return false;
+    }
+
+    public void ShowOutline(Material outlineMat)
+    {
+        if (_outlined) return;
+        _outlined = true;
+        var skull = transform.Find("Skull");
+        if (skull == null) return;
+        var mf = skull.GetComponent<MeshFilter>();
+        if (mf == null) return;
+        var twin = new GameObject("_Outline");
+        twin.transform.SetParent(skull, false);
+        twin.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+        var mr = twin.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = outlineMat;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        mr.receiveShadows = false;
+        _outlineObjects.Add(twin);
+    }
+
+    public void HideOutline()
+    {
+        if (!_outlined) return;
+        _outlined = false;
+        foreach (var go in _outlineObjects)
+            if (go != null) Destroy(go);
+        _outlineObjects.Clear();
     }
 }

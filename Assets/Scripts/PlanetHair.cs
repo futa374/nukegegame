@@ -19,6 +19,23 @@ public class PlanetHair : MonoBehaviour
     float _spin;
     float _spinSpeed;
 
+    public string ownerName      = "";
+    public string birthTimeString = "";
+
+    readonly System.Collections.Generic.List<Renderer> _renderers = new System.Collections.Generic.List<Renderer>();
+    readonly System.Collections.Generic.List<GameObject> _outlineObjects = new System.Collections.Generic.List<GameObject>();
+    bool _outlined;
+    bool _tangled;
+    int  _hairCheckTimer;
+
+    // DustParticleが毛を探すための静的リスト
+    static readonly System.Collections.Generic.List<PlanetHair> _all = new System.Collections.Generic.List<PlanetHair>();
+    public static System.Collections.Generic.IReadOnlyList<PlanetHair> All => _all;
+
+    void OnEnable()  { _all.Add(this); }
+    void OnDisable() { _all.Remove(this); }
+    void OnDestroy() { _all.Remove(this); }
+
     public void Init(Vector3 center, float landRadius, Vector3 startPos, Material mat,
                      float thickness, float length, float fallSpeed, float driftDegPerSec, Vector3 driftAxis)
     {
@@ -34,11 +51,49 @@ public class PlanetHair : MonoBehaviour
         _spin = Random.Range(0f, 360f);
         _spinSpeed = Random.Range(-25f, 25f);
         BuildStrand(gameObject, length, thickness, mat);
+        GetComponentsInChildren<Renderer>(_renderers);
+
+        // ホバー検出用コライダー（ストランドのローカルZ軸方向に沿ったカプセル）
+        var col = gameObject.AddComponent<CapsuleCollider>();
+        col.direction = 2; // Z軸
+        col.height = length * 1.3f;
+        col.radius = Mathf.Max(thickness * 5f, 0.018f);
+
         PlaceInternal(_radius);
+    }
+
+    public void ShowOutline(Material outlineMat)
+    {
+        if (_outlined) return;
+        _outlined = true;
+        foreach (var r in _renderers)
+        {
+            var mf = r.GetComponent<MeshFilter>();
+            if (mf == null) continue;
+            var twin = new GameObject("_Outline");
+            twin.transform.SetParent(r.transform, false);
+            twin.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+            var mr = twin.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = outlineMat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            _outlineObjects.Add(twin);
+        }
+    }
+
+    public void HideOutline()
+    {
+        if (!_outlined) return;
+        _outlined = false;
+        foreach (var go in _outlineObjects)
+            if (go != null) Destroy(go);
+        _outlineObjects.Clear();
     }
 
     void Update()
     {
+        if (_tangled) return;
+
         float dt = Time.deltaTime;
         _dir = (Quaternion.AngleAxis(_driftDeg * dt, _driftAxis) * _dir).normalized;
 
@@ -54,6 +109,32 @@ public class PlanetHair : MonoBehaviour
 
         _spin += _spinSpeed * dt;
         PlaceInternal(rad);
+
+        // 毛同士の絡まりチェック（15フレームに1回）
+        if (++_hairCheckTimer < 15) return;
+        _hairCheckTimer = 0;
+        for (int i = 0; i < _all.Count; i++)
+        {
+            var other = _all[i];
+            if (other == null || other == this || other._tangled) continue;
+            if (Vector3.Distance(transform.position, other.transform.position) < 0.06f)
+            {
+                TangleWith(other);
+                return;
+            }
+        }
+    }
+
+    void TangleWith(PlanetHair other)
+    {
+        _tangled = true;
+        transform.SetParent(other.transform, false);
+        transform.localPosition = new Vector3(
+            Random.Range(-0.015f, 0.015f),
+            Random.Range(-0.015f, 0.015f),
+            Random.Range(-0.030f, 0.030f));
+        transform.localRotation = Quaternion.Euler(
+            Random.Range(-60f, 60f), Random.Range(0f, 360f), Random.Range(-30f, 30f));
     }
 
     void PlaceInternal(float rad)

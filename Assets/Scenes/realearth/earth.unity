@@ -168,6 +168,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 5b9100e83e3324037842a486e13c6625, type: 2}
@@ -180,11 +184,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
---- !u!4 &407050956 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
-  m_PrefabInstance: {fileID: 317944630}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &425055530
 GameObject:
   m_ObjectHideFlags: 0
@@ -312,6 +311,152 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &457090687
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 457090689}
+  - component: {fileID: 457090688}
+  m_Layer: 0
+  m_Name: PlanetRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &457090688
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 457090687}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5fdd9798edc2406a88accc1ac9486d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlanetController
+  globeRadius: 1
+  lineColor: {r: 0, g: 0, b: 0, a: 1}
+  meridianCount: 6
+  parallelCount: 5
+  lineWidth: 0.03
+  textureWidth: 640
+  continentFreq: 2
+  seaLevel: 0.52
+  earthSeed: 7
+  oceanDeep: {r: 0.09, g: 0.24, b: 0.48, a: 1}
+  oceanShallow: {r: 0.19, g: 0.44, b: 0.62, a: 1}
+  landLow: {r: 0.28, g: 0.52, b: 0.24, a: 1}
+  landHigh: {r: 0.55, g: 0.47, b: 0.3, a: 1}
+  iceColor: {r: 0.93, g: 0.95, b: 0.97, a: 1}
+  headCount: 18
+  orbitHeight: 0.25
+  orbitSpeedDeg: 12.5
+  headSize: 0.14
+  headColor: {r: 0.98, g: 0.8, b: 0.66, a: 1}
+  headSeed: 12345
+  headHairCount: 90
+  faceYawOffset: 0
+  hairColor: {r: 0.07, g: 0.07, b: 0.08, a: 1}
+  hairGloss: 0.5
+  shedInterval: 0.6
+  hairThickness: 0.004
+  hairLength: 0.07
+  scalpHairLength: 0.06
+  fallSpeed: 0.18
+  driftSpeedMin: 4
+  driftSpeedMax: 12
+  maxHairs: 900
+  setupCamera: 0
+  backgroundColor: {r: 0.22, g: 0.22, b: 0.23, a: 1}
+  cameraDistance: 3
+  buildGlobe: 0
+  regrowDelay: 1.25
+  dustCount: 240
+  pollenCount: 120
+  dustColor: {r: 0.55, g: 0.5, b: 0.45, a: 1}
+  pollenColor: {r: 0.95, g: 0.85, b: 0.1, a: 1}
+--- !u!4 &457090689
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 457090687}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &784343960
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071067
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 5b9100e83e3324037842a486e13c6625, type: 2}
+    - target: {fileID: 919132149155446097, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      propertyPath: m_Name
+      value: Earth (1)
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
 --- !u!1 &1493423896
 GameObject:
   m_ObjectHideFlags: 0
@@ -373,7 +518,9 @@ GameObject:
   - component: {fileID: 1723257799}
   - component: {fileID: 1723257798}
   - component: {fileID: 1723257802}
-  - component: {fileID: 1723257801}
+  - component: {fileID: 1723257803}
+  - component: {fileID: 1723257804}
+  - component: {fileID: 1723257805}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -420,7 +567,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.01
   far clip plane: 1000
   field of view: 60
   orthographic: 0
@@ -455,31 +602,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1723257801
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1723257797}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 07538f8df38cf47fda6f1bdd822d66f7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CameraOrbit
-  target: {fileID: 407050956}
-  sensitivityH: 0.1
-  sensitivityV: 0.1
-  zoomSensitivity: 0.01
-  distance: 3
-  maxDistance: 10
-  verticalOffset: 0
-  transitionDistance: 2.5
-  transitionScene: ScalpScene
-  backTransitionScene: 
-  initialAzimuth: 0
-  initialElevation: 0
-  useBoundsCenter: 1
 --- !u!114 &1723257802
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -524,6 +646,59 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &1723257803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1723257797}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e99247a3037324d519e46020c7d49d86, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlanetCameraRig
+  pivot: {x: 0, y: 0, z: 0}
+  distance: 3
+  minDistance: 1.5
+  maxDistance: 8
+  azimuth: 30
+  elevation: 15
+  rotateSpeed: 0.25
+  zoomSpeed: 0.02
+  minElevation: -85
+  maxElevation: 85
+  followDistance: 0.25
+  transitionTime: 0.4
+  autoOrbitSpeedDeg: 40
+--- !u!114 &1723257804
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1723257797}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da2eb769448e743e9a604ab8fe1c7bf7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HairHoverController
+  outlineColor: {r: 0.2, g: 0.8, b: 1, a: 1}
+  outlineWidth: 0.008
+--- !u!114 &1723257805
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1723257797}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e607d823dab824a7f8fec29dbabcce08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameClock
+  timeScale: 43200
+  startYear: 2026
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -532,3 +707,5 @@ SceneRoots:
   - {fileID: 425055532}
   - {fileID: 317944630}
   - {fileID: 1493423898}
+  - {fileID: 457090689}
+  - {fileID: 784343960}
