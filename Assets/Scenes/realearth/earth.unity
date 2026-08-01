@@ -321,6 +321,7 @@ GameObject:
   m_Component:
   - component: {fileID: 457090689}
   - component: {fileID: 457090688}
+  - component: {fileID: 457090690}
   m_Layer: 0
   m_Name: PlanetRoot
   m_TagString: Untagged
@@ -396,6 +397,52 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &457090690
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 457090687}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 386b27841e35e4190b572813210803c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlanetRealHeads
+  headModel: {fileID: 919132149155446097, guid: cb682f2806e074e2487dd552b4541a4f, type: 3}
+  modelScale: 1
+  modelYaw: 0
+  glassesModel: {fileID: 919132149155446097, guid: b25764665849448229ed2bd69b15115a, type: 3}
+  showGlasses: 1
+  glassesColor: {r: 0.05, g: 0.05, b: 0.06, a: 1}
+  glassesSmoothness: 0.42
+  skinTexture: {fileID: 2800000, guid: 3a7557b724d2a4a21bd3f9074833dc9f, type: 3}
+  skinNormalMap: {fileID: 0}
+  skinOcclusionMap: {fileID: 0}
+  skinMaskMap: {fileID: 0}
+  normalStrength: 1.1
+  occlusionStrength: 0.9
+  skinBase: {r: 0.86, g: 0.68, b: 0.57, a: 1}
+  skinShadow: {r: 0.62, g: 0.44, b: 0.36, a: 1}
+  skinFlush: {r: 0.84, g: 0.55, b: 0.47, a: 1}
+  skinTextureWidth: 1024
+  width: 0.86
+  occiput: 0.17
+  jawTaper: 0.3
+  foreheadFlatten: 0.05
+  crownFlatten: 0.06
+  crownDirection: {x: 0.12, y: 0.95, z: -0.28}
+  hairlineFront: 0.42
+  hairlineBack: 0.02
+  lift: 0.14
+  flowJitter: 0.16
+  scalpOffset: 0.008
+  faceAvoidance: 1.1
+  hideBelowHairline: 1
+  focusMode: 0
+  focusSpinDeg: 12
+  focusCamera: 0
+  focusDistance: 1.6
 --- !u!1001 &784343960
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -423,14 +423,30 @@ public class PlanetRealHeads : MonoBehaviour
         Vector3 cranium = CraniumCenter(go.transform);
         go.transform.localPosition = -cranium;
 
+        // 頭のメッシュが二つのサブメッシュ（skin / frame）を持つ場合、
+        // フレームは肌とは別のマテリアルで塗れる。眼鏡を重ねる必要はない。
         var mat = MakeSkinMaterial();
-        foreach (var r in go.GetComponentsInChildren<Renderer>()) r.sharedMaterial = mat;
+        bool frameInMesh = false;
+        foreach (var r in go.GetComponentsInChildren<Renderer>())
+        {
+            var mf = r.GetComponent<MeshFilter>();
+            int sub = (mf != null && mf.sharedMesh != null) ? mf.sharedMesh.subMeshCount : 1;
+            if (sub >= 2)
+            {
+                var mats = new Material[sub];
+                mats[0] = mat;
+                for (int i = 1; i < sub; i++) mats[i] = MakeGlassesMaterial();
+                r.sharedMaterials = mats;
+                frameInMesh = true;
+            }
+            else r.sharedMaterial = mat;
+        }
 
         // 毛を生やす基準（頭皮までの距離）は、眼鏡を付ける前に測る。
         // 付けたあとだと、フレームの上から毛が生えてしまう。
         BuildRadiusTable(go.transform);
 
-        if (showGlasses) AttachGlasses(go.transform);
+        if (showGlasses && !frameInMesh) AttachGlasses(go.transform);
     }
 
     /// <summary>
@@ -472,6 +488,13 @@ public class PlanetRealHeads : MonoBehaviour
         g.transform.localRotation = Quaternion.identity;
         g.transform.localScale = Vector3.one;
 
+        var m = MakeGlassesMaterial();
+        foreach (var r in g.GetComponentsInChildren<Renderer>()) r.sharedMaterial = m;
+    }
+
+    /// <summary>黒いプラスチックのフレーム。別メッシュにも、サブメッシュにも同じものを使う。</summary>
+    Material MakeGlassesMaterial()
+    {
         Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
         var m = new Material(sh);
         if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", glassesColor);
@@ -480,7 +503,7 @@ public class PlanetRealHeads : MonoBehaviour
         if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", null);
         if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", glassesSmoothness);
         if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0.0f);
-        foreach (var r in g.GetComponentsInChildren<Renderer>()) r.sharedMaterial = m;
+        return m;
     }
 
     /// <summary>

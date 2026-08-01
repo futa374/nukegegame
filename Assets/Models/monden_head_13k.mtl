@@ -1,0 +1,6 @@
+newmtl skin
+Kd 1.000 1.000 1.000
+
+newmtl frame
+Kd 0.050 0.050 0.060
+Ns 120
