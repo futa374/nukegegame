@@ -119,6 +119,26 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &184532161 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+  m_PrefabInstance: {fileID: 317944630}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &184532165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 184532161}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 962614cd0be63409481a7307c84dfa57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EarthSpin
+  axis: {x: 0, y: 1, z: 0}
+  degreesPerSecond: 5
+  space: 0
 --- !u!1001 &317944630
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -182,7 +202,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 184532165}
   m_SourcePrefab: {fileID: 100100000, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
 --- !u!1 &425055530
 GameObject:
@@ -502,7 +525,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2141983784}
   m_SourcePrefab: {fileID: 100100000, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
 --- !u!1 &1493423896
 GameObject:
@@ -746,6 +772,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameClock
   timeScale: 43200
   startYear: 2026
+--- !u!1 &2141983780 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 0130c6b3811584390adc93f93bd7ebe8, type: 3}
+  m_PrefabInstance: {fileID: 784343960}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2141983784
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2141983780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 962614cd0be63409481a7307c84dfa57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EarthSpin
+  axis: {x: 0, y: 1, z: 0}
+  degreesPerSecond: 5
+  space: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
