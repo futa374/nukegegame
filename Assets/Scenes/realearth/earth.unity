@@ -389,8 +389,8 @@ MonoBehaviour:
   hairColor: {r: 0.07, g: 0.07, b: 0.08, a: 1}
   hairGloss: 0.5
   shedInterval: 0.6
-  hairThickness: 0.004
-  hairLength: 0.07
+  hairThickness: 0.003
+  hairLength: 0.055
   scalpHairLength: 0.06
   fallSpeed: 0.18
   driftSpeedMin: 4
@@ -466,6 +466,16 @@ MonoBehaviour:
   focusSpinDeg: 12
   focusCamera: 0
   focusDistance: 1.6
+  volumeHair: 1
+  hairCap: 1
+  capOffset: 0.003
+  capRecede: 0.5
+  volumeStrandCount: 420
+  volumeStrandLength: 0.3
+  volumeThickness: 0.006
+  volumeSides: 3
+  volumeSegments: 6
+  volumeLift: 0.06
 --- !u!1001 &784343960
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -758,6 +768,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HairHoverController
   outlineColor: {r: 0.2, g: 0.8, b: 1, a: 1}
   outlineWidth: 0.008
+  followBrightness: 1.5
+  followEmission: 1.2
+  headEmission: 0.25
+  followGlowWhiteness: 0.6
 --- !u!114 &1723257805
 MonoBehaviour:
   m_ObjectHideFlags: 0

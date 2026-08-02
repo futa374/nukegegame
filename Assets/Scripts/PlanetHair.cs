@@ -110,14 +110,18 @@ public class PlanetHair : MonoBehaviour
         _spin += _spinSpeed * dt;
         PlaceInternal(rad);
 
-        // 毛同士の絡まりチェック（15フレームに1回）
+        // 毛同士の絡まりチェック（15フレームに1回）。
+        // 空中を漂っている間は絡ませない。落ち着いた（着地した）毛だけ、近ければ緩く寄り添う。
+        // 全部が絡むと星形の枝くずに見えるので、近くても一定確率でしか絡めない。
+        if (!_landed) return;
         if (++_hairCheckTimer < 15) return;
         _hairCheckTimer = 0;
         for (int i = 0; i < _all.Count; i++)
         {
             var other = _all[i];
-            if (other == null || other == this || other._tangled) continue;
-            if (Vector3.Distance(transform.position, other.transform.position) < 0.06f)
+            if (other == null || other == this || other._tangled || !other._landed) continue;
+            if (Vector3.Distance(transform.position, other.transform.position) < 0.03f
+                && Random.value < 0.35f)
             {
                 TangleWith(other);
                 return;
@@ -130,11 +134,12 @@ public class PlanetHair : MonoBehaviour
         _tangled = true;
         transform.SetParent(other.transform, false);
         transform.localPosition = new Vector3(
-            Random.Range(-0.015f, 0.015f),
-            Random.Range(-0.015f, 0.015f),
-            Random.Range(-0.030f, 0.030f));
+            Random.Range(-0.010f, 0.010f),
+            Random.Range(-0.010f, 0.010f),
+            Random.Range(-0.020f, 0.020f));
+        // 角度は控えめに。大きく振ると放射状の星になる。ほぼ寄り添う向きで、柔らかい房にする。
         transform.localRotation = Quaternion.Euler(
-            Random.Range(-60f, 60f), Random.Range(0f, 360f), Random.Range(-30f, 30f));
+            Random.Range(-18f, 18f), Random.Range(0f, 360f), Random.Range(-12f, 12f));
     }
 
     void PlaceInternal(float rad)
@@ -153,12 +158,15 @@ public class PlanetHair : MonoBehaviour
     /// </summary>
     public static void BuildStrand(GameObject go, float length, float thickness, Material mat)
     {
-        int seg = 3;
+        int seg = 4;
         Vector3 prev = PointOnStrand(0f, length);
         for (int i = 1; i <= seg; i++)
         {
             Vector3 p = PointOnStrand((float)i / seg, length);
-            MakeSegment(go.transform, prev, p, thickness, mat);
+            // 毛先へ向けて細くする。棒ではなく毛に見せる。
+            float tm = ((float)i - 0.5f) / seg;
+            float th = thickness * Mathf.Lerp(1f, 0.3f, tm);
+            MakeSegment(go.transform, prev, p, th, mat);
             prev = p;
         }
     }
@@ -166,8 +174,10 @@ public class PlanetHair : MonoBehaviour
     static Vector3 PointOnStrand(float t, float length)
     {
         float z = (t - 0.5f) * length;
-        float x = Mathf.Sin(t * Mathf.PI * 1.5f) * length * 0.12f;
-        return new Vector3(x, 0f, z);
+        // ゆるいカール。硬い直線の棒に見えないよう、面内で少しうねらせる。
+        float x = Mathf.Sin(t * Mathf.PI * 1.7f) * length * 0.22f;
+        float y = Mathf.Sin(t * Mathf.PI * 0.9f) * length * 0.08f;
+        return new Vector3(x, y, z);
     }
 
     static void MakeSegment(Transform parent, Vector3 a, Vector3 b, float thickness, Material mat)
