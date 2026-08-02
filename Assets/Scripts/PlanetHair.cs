@@ -19,6 +19,11 @@ public class PlanetHair : MonoBehaviour
     float _spin;
     float _spinSpeed;
 
+    // 上空で漂う時間（ランダム）。これが尽きると地表へ定着する。
+    public float settleTimeMin = 5f;
+    public float settleTimeMax = 18f;
+    float _settleTimer;
+
     public string ownerName      = "";
     public string birthTimeString = "";
 
@@ -100,7 +105,20 @@ public class PlanetHair : MonoBehaviour
         if (!_landed)
         {
             _radius = Mathf.MoveTowards(_radius, _landRadius, _fallSpeed * dt);
-            if (_radius <= _landRadius + 1e-3f) _landed = true;
+            if (_radius <= _landRadius + 1e-3f)
+            {
+                // 上空に達した。ここからしばらく漂って、他の毛や花粉と絡まる。
+                // 漂う時間はランダム。すぐ定着する毛もあれば、長く漂って色々絡まる毛もある。
+                _landed = true;
+                _settleTimer = Random.Range(settleTimeMin, settleTimeMax);
+            }
+        }
+        else
+        {
+            // 漂ったのち、ランダムな時間で地表へ定着する。
+            // 絡まっている毛（子）がいれば、その塊ごとまとめて定着させる。
+            _settleTimer -= dt;
+            if (_settleTimer <= 0f) { Settle(); return; }
         }
 
         float rad = _landed
@@ -127,6 +145,17 @@ public class PlanetHair : MonoBehaviour
                 return;
             }
         }
+    }
+
+    // 漂う時間が尽きたら、自分と自分に絡まっている毛（子）をまとめて地表へ定着させる。
+    // 一本だけなら1本、色々絡まっていればその塊ぶんが、まとめて積もる。
+    void Settle()
+    {
+        var field = LandedHairField.Ensure();
+        var clump = GetComponentsInChildren<PlanetHair>(true);   // 自分＋絡まった毛
+        foreach (var h in clump)
+            if (h != null) field.Add(h.transform, h.ownerName, h.birthTimeString);
+        Destroy(gameObject);
     }
 
     void TangleWith(PlanetHair other)
