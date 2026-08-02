@@ -106,6 +106,10 @@ public class PlanetRealHeads : MonoBehaviour
     public float capOffset = 0.003f;
     [Tooltip("抜けきったときに生え際がどれだけ後退するか（0で不変、大きいほどハゲ上がる）")]
     [Range(0f, 1f)] public float capRecede = 0.5f;
+    [Tooltip("前側だけキャップ（面）を上げて額を出し、毛だけ前へ垂らして透け感のあるフリンジにする量。")]
+    [Range(0f, 0.5f)] public float capFrontLift = 0.18f;
+    [Tooltip("もみあげ。耳の前（前×横）で生え際を下げて毛を下ろす量。0でなし。")]
+    [Range(0f, 0.8f)] public float sideburn = 0.5f;
     [Tooltip("キャップ上に生やす毛の本数（見た目の毛流れ・質感）。多いほど重い。")]
     public int volumeStrandCount = 260;
     [Tooltip("毛の長さ。キャップ上の毛流れとして短めが自然。")]
@@ -118,6 +122,17 @@ public class PlanetRealHeads : MonoBehaviour
     [Range(2, 8)] public int volumeSegments = 4;
     [Tooltip("毛を頭皮からどれだけ浮かせるか。0で頭皮に完全に沿う（＝寝かせる）。")]
     [Range(0f, 1f)] public float volumeLift = 0.08f;
+
+    [Header("頭のサイクル（ハゲたら消えて新しい頭が生まれる）")]
+    [Tooltip("完全にハゲた頭をフェードアウト→中身をリセット→フェードインさせる。毛を生やし直す代わりに世代交代する。")]
+    public bool rebirthCycle = true;
+    [Tooltip("フェードアウト／インにかける秒数")]
+    public float fadeTime = 1.5f;
+
+    static readonly string[] _rebornNames = {
+        "HARUTO","REN","SOTA","YUMA","KAITO","RIKU","AOI","HINATA","YUTO","SORA",
+    };
+    int _rebornIdx;
 
     bool _ready;
     float _retryT;
@@ -260,6 +275,8 @@ public class PlanetRealHeads : MonoBehaviour
     // PlanetController の円柱の毛は描画だけ止め、抜け毛カウントの器として残す。
     // ==================================================================
 
+    enum HeadPhase { Alive, FadingOut, FadingIn }
+
     class VolumeHead
     {
         public Transform head;
@@ -268,32 +285,41 @@ public class PlanetRealHeads : MonoBehaviour
         public int refCount = 1;          // 満タン時の頭皮毛数（残り割合の基準）
         public float lastBoost = -1f;     // いま適用中の生え際後退量（変化検知用）
 
-        // 有毛領域を覆う薄殻（キャップ）のグリッド。生え際後退で縁を削って薄くする。
-        public Vector3[] capPos;
-        public Vector3[] capNrm;
-        public float[]   capMargin;       // その頂点の (d.y - 生え際)。boost より大きい所だけ張る。
-        public int capAZ, capRows;
+        public HeadPhase phase = HeadPhase.Alive;
+        public float fadeT;               // フェード進行 0..1
+
+        // 有毛領域を覆う薄殻（キャップ）。頭モデルの表面をそのまま使う。
+        // 中心からの距離ではなく実際の表面に貼るので、耳の張り出しに関係なく頭皮を覆える。
+        public Vector3[] capVerts;        // 表面＋法線オフセット（頭ローカル）
+        public Vector3[] capNorms;
+        public float[]   capMargin;       // その頂点の (d.y - 生え際)。boost より大きい三角形だけ張る。
+        public int[]     capTris;
     }
     readonly List<VolumeHead> _volumeHeads = new List<VolumeHead>();
     float _volumeTick;
 
     static readonly List<Vector3> _mv = new List<Vector3>();
     static readonly List<Vector3> _mn = new List<Vector3>();
-    static readonly List<int>     _mt = new List<int>();
+    static readonly List<int>     _mt = new List<int>();        // サブメッシュ0＝キャップ（地）
+    static readonly List<int>     _mtStrand = new List<int>();  // サブメッシュ1＝毛
 
     void BuildVolumeHair(Transform head, Vector3 crown, Vector3 skullScale, System.Random rnd)
     {
         var orbit = head.GetComponent<OrbitingHead>();
-        Material mat = orbit != null ? orbit.hairMat : null;
+        Color hairCol = (orbit != null && orbit.hairMat != null && orbit.hairMat.HasProperty("_BaseColor"))
+            ? orbit.hairMat.GetColor("_BaseColor")
+            : new Color(0.05f, 0.042f, 0.037f);
+        // 地（キャップ）も毛も暗くマット。毛はごくわずかに明るくするだけ（トゲが目立たないように）。
+        Color capCol    = hairCol * 0.75f;
+        Color strandCol = Color.Lerp(hairCol, new Color(0.11f, 0.095f, 0.08f), 0.35f);
+        var capMat    = MakeHairMaterial(capCol, 0.16f);
+        var strandMat = MakeHairMaterial(strandCol, 0.28f);
 
-        // 頭皮に沿って寝かせた毛を独立生成してキャッシュする（SurfaceRadius が要るのでこの場で作る）
-        var strands = new List<Vector3[]>(volumeStrandCount);
-        int guard = volumeStrandCount * 25;
-        while (strands.Count < volumeStrandCount && guard-- > 0)
-        {
-            var poly = ComputeVolumeStrand(RandomScalpDir(rnd), crown, skullScale, rnd);
-            if (poly != null) strands.Add(poly);
-        }
+        // 頭モデルの表面（頭ローカル）を取得。毛の根も地の殻も、この実面に貼る。
+        GetHeadSurface(head, out var sVerts, out var sNorms, out var sTris);
+
+        // 表面の点を根に、頭皮に沿った短い毛を多数生成する（＝一本一本の毛の集積で髪型を作る）。
+        var strands = BuildSurfaceStrands(sVerts, sNorms, crown, rnd);
 
         var go = new GameObject("HairVolume");
         go.transform.SetParent(head, false);
@@ -302,7 +328,7 @@ public class PlanetRealHeads : MonoBehaviour
         go.transform.localScale = Vector3.one;
         go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
-        mr.sharedMaterial = mat;
+        mr.sharedMaterials = new[] { capMat, strandMat };   // 0=地, 1=毛
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
 
         var vh = new VolumeHead
@@ -312,39 +338,135 @@ public class PlanetRealHeads : MonoBehaviour
             strands = strands,
             refCount = Mathf.Max(1, CountActiveScalpStrands(head)),
         };
-        if (hairCap) BuildCapGrid(vh, skullScale);   // SurfaceRadius が要るのでこの場で作る
+        if (hairCap && sVerts != null) BuildCapFromSurface(vh, sVerts, sNorms, sTris);   // 隙間から肌が透けないための地
         _volumeHeads.Add(vh);
 
         HideScalpCylinders(head);
         RebuildVolumeMesh(vh, 0f);
     }
 
-    // 有毛領域を覆う薄殻グリッドを、頭皮に沿ってこの場で焼き込む（SurfaceRadius が正しい間に）。
-    void BuildCapGrid(VolumeHead vh, Vector3 skullScale)
+    // 頭モデル（肌サブメッシュ）の頂点・法線・三角形を頭ローカルで取り出す。
+    void GetHeadSurface(Transform head, out Vector3[] verts, out Vector3[] norms, out int[] tris)
     {
-        int AZ = 72, EL = 28;
-        int cols = AZ + 1;          // 継ぎ目の列を複製して三角形を張りやすくする
-        int rows = EL + 1;
-        vh.capAZ = AZ; vh.capRows = rows;
-        vh.capPos = new Vector3[cols * rows];
-        vh.capNrm = new Vector3[cols * rows];
-        vh.capMargin = new float[cols * rows];
+        verts = null; norms = null; tris = null;
+        var hm = head.Find("HeadModel");
+        if (hm == null) return;   // 今回はモデルヘッド前提
 
-        for (int e = 0; e < rows; e++)
+        var vl = new List<Vector3>();
+        var nl = new List<Vector3>();
+        var tl = new List<int>();
+        foreach (var mf in hm.GetComponentsInChildren<MeshFilter>())
         {
-            float y = Mathf.Lerp(0.999f, -0.25f, (float)e / EL);   // 頭頂→生え際下まで
-            float rxz = Mathf.Sqrt(Mathf.Max(0f, 1f - y * y));
-            for (int a = 0; a < cols; a++)
+            var mesh = mf.sharedMesh;
+            if (mesh == null || !mesh.isReadable) continue;
+            var mv = mesh.vertices;
+            var mn = mesh.normals;
+            var mt = mesh.GetTriangles(0);   // サブメッシュ0＝肌（眼鏡フレームは除く）
+            var tf = mf.transform;
+            int baseIdx = vl.Count;
+            for (int i = 0; i < mv.Length; i++)
             {
-                float az = (float)a / AZ * Mathf.PI * 2f;
-                Vector3 d = new Vector3(Mathf.Cos(az) * rxz, y, Mathf.Sin(az) * rxz);
-                int idx = e * cols + a;
-                vh.capPos[idx] = d * (SurfaceRadius(d, skullScale) + capOffset);
-                vh.capNrm[idx] = d;
-                float hl = Mathf.Lerp(hairlineBack, hairlineFront, Mathf.Clamp01(d.z * 0.5f + 0.5f));
-                vh.capMargin[idx] = d.y - hl;   // >0 で有毛
+                vl.Add(head.InverseTransformPoint(tf.TransformPoint(mv[i])));
+                Vector3 n = i < mn.Length ? mn[i] : Vector3.up;
+                nl.Add(head.InverseTransformDirection(tf.TransformDirection(n)).normalized);
             }
+            for (int i = 0; i < mt.Length; i++) tl.Add(baseIdx + mt[i]);
         }
+        if (vl.Count == 0) return;
+        verts = vl.ToArray(); norms = nl.ToArray(); tris = tl.ToArray();
+    }
+
+    // 表面の点をランダムに根として選び、頭皮に沿った短い毛を volumeStrandCount 本作る。
+    // 実面に根を置くので、耳の上・側頭部・後頭部にもちゃんと毛が付く。
+    List<Vector3[]> BuildSurfaceStrands(Vector3[] verts, Vector3[] norms, Vector3 crown, System.Random rnd)
+    {
+        var strands = new List<Vector3[]>(volumeStrandCount);
+        if (verts == null || verts.Length == 0) return strands;
+
+        int n = Mathf.Max(2, volumeSegments);
+        int attempts = volumeStrandCount * 10;
+        for (int k = 0; k < attempts && strands.Count < volumeStrandCount; k++)
+        {
+            int idx = rnd.Next(verts.Length);
+            Vector3 root = verts[idx];
+            Vector3 nrm = norms[idx];
+            Vector3 d0 = root.sqrMagnitude > 1e-8f ? root.normalized : Vector3.up;
+            if (d0.y < Hairline(d0)) continue;   // 生え際より下は生やさない
+
+            // つむじから遠ざかる流れを、表面接線へ落とす
+            Vector3 flow = d0 * Vector3.Dot(crown, d0) - crown;
+            flow = Vector3.ProjectOnPlane(flow, nrm);
+            if (flow.sqrMagnitude < 1e-8f) flow = Vector3.ProjectOnPlane(new Vector3(0f, 0f, -1f), nrm);
+            flow.Normalize();
+
+            float towardFace = Vector3.Dot(flow, Vector3.forward);
+            if (towardFace > 0f)
+                flow = Vector3.ProjectOnPlane(flow - Vector3.forward * towardFace * faceAvoidance, nrm).normalized;
+
+            flow = Vector3.ProjectOnPlane(flow + new Vector3(
+                ((float)rnd.NextDouble() - 0.5f) * flowJitter,
+                ((float)rnd.NextDouble() - 0.5f) * flowJitter,
+                ((float)rnd.NextDouble() - 0.5f) * flowJitter), nrm).normalized;
+
+            // 伸びる向き：主に接線（寝かせ）＋少し法線（立ち上げ）
+            Vector3 dir = (flow * (1f - volumeLift) + nrm * volumeLift).normalized;
+
+            // 毛を直線でなく、頭の表面（ほぼ一定半径の殻）に沿って巻きつく曲線にする。
+            // 直線だと、毛が頭の半径より長いと接線方向へ飛び出してトゲになる。
+            // 各ステップで表面半径へ戻し、接線を取り直すことで、長くても頭に沿って寝る。
+            var pts = new Vector3[n + 1];
+            Vector3 baseP = root + nrm * scalpOffset;
+            float rootRad = baseP.magnitude;
+            Vector3 pos = baseP;
+            Vector3 cur = dir;
+            pts[0] = baseP;
+            float step = volumeStrandLength / n;
+            for (int j = 1; j <= n; j++)
+            {
+                pos += cur * step;
+                float t = (float)j / n;
+                float rr = rootRad + volumeLift * volumeStrandLength * t;   // 毛先ほどわずかに浮く
+                pos = pos.normalized * rr;                                   // 表面の殻へ戻す
+                cur = Vector3.ProjectOnPlane(cur, pos.normalized).normalized; // 接線を取り直す
+                if (cur.sqrMagnitude < 1e-8f) cur = dir;
+                pts[j] = pos;
+            }
+            strands.Add(pts);
+        }
+        return strands;
+    }
+
+    // 頭モデルの表面をそのまま地の薄殻にする（毛の隙間から肌が透けないように）。
+    void BuildCapFromSurface(VolumeHead vh, Vector3[] verts, Vector3[] norms, int[] tris)
+    {
+        int nv = verts.Length;
+        vh.capVerts  = new Vector3[nv];
+        vh.capNorms  = new Vector3[nv];
+        vh.capMargin = new float[nv];
+        for (int i = 0; i < nv; i++)
+        {
+            Vector3 lp = verts[i];
+            Vector3 ln = norms[i];
+            vh.capNorms[i] = ln;
+            vh.capVerts[i] = lp + ln * capOffset;
+            Vector3 d = lp.sqrMagnitude > 1e-10f ? lp.normalized : Vector3.up;
+            float f = Mathf.Clamp01(d.z);
+            vh.capMargin[i] = d.y - (Hairline(d) + capFrontLift * f * f);   // >0 で有毛
+        }
+        vh.capTris = tris;
+    }
+
+    // 生え際の高さ。
+    // 顔の正面（+Z）だけ生え際を上げて額を出す。横（側頭部・耳の周り）と後ろ（後頭部）は
+    // 低くして、しっかり毛で覆う。正面だけに効かせることで、額の生え際は自然な曲線になり、
+    // かつ耳周り・側頭部・後頭部まで毛が回る（お椀＝カッパにはならない）。
+    float Hairline(Vector3 d)
+    {
+        float f = Mathf.Clamp01(d.z);              // 正面で1、横・後ろで0
+        float hl = Mathf.Lerp(hairlineBack, hairlineFront, f * f);
+        // もみあげ：前(+Z)かつ横(|x|大)で生え際を下げ、耳の前へ毛を下ろす。正面中央(x≈0)は前髪のまま。
+        hl -= sideburn * f * d.x * d.x;
+        return hl;
     }
 
     // 頭皮側へ偏らせた根本方向をひとつ返す
@@ -362,8 +484,7 @@ public class PlanetRealHeads : MonoBehaviour
     {
         d0 = d0.normalized;
 
-        float hairline = Mathf.Lerp(hairlineBack, hairlineFront, Mathf.Clamp01(d0.z * 0.5f + 0.5f));
-        if (d0.y < hairline) return null;
+        if (d0.y < Hairline(d0)) return null;
 
         Vector3 flow = d0 * Vector3.Dot(crown, d0) - crown;
         if (flow.sqrMagnitude < 1e-6f) flow = Vector3.ProjectOnPlane(new Vector3(0f, 0f, -1f), d0);
@@ -391,8 +512,7 @@ public class PlanetRealHeads : MonoBehaviour
         {
             float a = totalAngle * i / probe;
             Vector3 d = Quaternion.AngleAxis(a, axis) * d0;
-            float limit = Mathf.Lerp(hairlineBack, hairlineFront, Mathf.Clamp01(d.z * 0.5f + 0.5f));
-            if (d.y < limit) { totalAngle = totalAngle * (i - 1) / probe; break; }
+            if (d.y < Hairline(d)) { totalAngle = totalAngle * (i - 1) / probe; break; }
         }
         if (totalAngle < 3f) return null;
 
@@ -413,18 +533,23 @@ public class PlanetRealHeads : MonoBehaviour
     {
         vh.lastBoost = boost;
 
-        _mv.Clear(); _mn.Clear(); _mt.Clear();
+        _mv.Clear(); _mn.Clear(); _mt.Clear(); _mtStrand.Clear();
         int sides = Mathf.Clamp(volumeSides, 2, 6);
 
-        if (hairCap && vh.capPos != null) AppendCap(vh, boost);
+        if (hairCap && vh.capVerts != null) AppendCap(vh, boost);
 
-        // 生え際（＋後退量）より上の毛だけ描く
-        for (int s = 0; s < vh.strands.Count; s++)
+        // 抜けるほど毛の本数も間引く（＝密度が減って薄くなる）。
+        // boost は (1-残り割合)*capRecede なので、boost/capRecede が抜けた割合になる。
+        float shed = capRecede > 1e-3f ? Mathf.Clamp01(boost / capRecede) : 0f;
+        int keep = Mathf.RoundToInt(vh.strands.Count * (1f - shed));
+
+        // 生え際（＋後退量）より上の、残っている本数分の毛だけ描く
+        // （毛は根がランダム順なので、先頭 keep 本を残すと全体が一様に薄くなる）
+        for (int s = 0; s < keep; s++)
         {
             var st = vh.strands[s];
             Vector3 dn = st[0].normalized;
-            float hl = Mathf.Lerp(hairlineBack, hairlineFront, Mathf.Clamp01(dn.z * 0.5f + 0.5f));
-            if (dn.y - hl < boost) continue;
+            if (dn.y - Hairline(dn) < boost) continue;
             AppendTube(st, volumeThickness, sides);
         }
 
@@ -442,7 +567,9 @@ public class PlanetRealHeads : MonoBehaviour
                 : UnityEngine.Rendering.IndexFormat.UInt16;
             mesh.SetVertices(_mv);
             mesh.SetNormals(_mn);
-            mesh.SetTriangles(_mt, 0);
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(_mt, 0);        // キャップ（地）
+            mesh.SetTriangles(_mtStrand, 1);  // 毛
             mesh.RecalculateBounds();
         }
     }
@@ -479,53 +606,146 @@ public class PlanetRealHeads : MonoBehaviour
             {
                 int a = r0i + s, b = r0i + (s + 1) % sides;
                 int c = r1i + s, d = r1i + (s + 1) % sides;
-                _mt.Add(a); _mt.Add(c); _mt.Add(b);
-                _mt.Add(b); _mt.Add(c); _mt.Add(d);
+                _mtStrand.Add(a); _mtStrand.Add(c); _mtStrand.Add(b);
+                _mtStrand.Add(b); _mtStrand.Add(c); _mtStrand.Add(d);
             }
         }
     }
 
-    // キャップ（有毛領域の薄殻）を _mv/_mn/_mt へ追加する。boost より上（有毛）の升だけ張る。
+    // キャップ（有毛領域の薄殻）を _mv/_mn/_mt へ追加する。生え際（＋boost）より上の三角形だけ張る。
     void AppendCap(VolumeHead vh, float boost)
     {
-        int AZ = vh.capAZ, rows = vh.capRows, cols = AZ + 1;
+        if (vh.capVerts == null || vh.capTris == null) return;
         int baseV = _mv.Count;
-        for (int i = 0; i < vh.capPos.Length; i++) { _mv.Add(vh.capPos[i]); _mn.Add(vh.capNrm[i]); }
+        for (int i = 0; i < vh.capVerts.Length; i++) { _mv.Add(vh.capVerts[i]); _mn.Add(vh.capNorms[i]); }
 
-        for (int e = 0; e < rows - 1; e++)
-            for (int a = 0; a < AZ; a++)
+        var tris = vh.capTris;
+        var m = vh.capMargin;
+        for (int t = 0; t < tris.Length; t += 3)
+        {
+            int a = tris[t], b = tris[t + 1], c = tris[t + 2];
+            if (m[a] > boost && m[b] > boost && m[c] > boost)
             {
-                int i00 = e * cols + a, i01 = e * cols + a + 1;
-                int i10 = (e + 1) * cols + a, i11 = (e + 1) * cols + a + 1;
-                if (vh.capMargin[i00] > boost && vh.capMargin[i01] > boost &&
-                    vh.capMargin[i10] > boost && vh.capMargin[i11] > boost)
-                {
-                    _mt.Add(baseV + i00); _mt.Add(baseV + i10); _mt.Add(baseV + i01);
-                    _mt.Add(baseV + i01); _mt.Add(baseV + i10); _mt.Add(baseV + i11);
-                }
+                _mt.Add(baseV + a); _mt.Add(baseV + b); _mt.Add(baseV + c);
             }
+        }
     }
 
     void TickVolume()
     {
         if (_volumeHeads.Count == 0) return;
-        _volumeTick += Time.deltaTime;
-        if (_volumeTick < 0.25f) return;
-        _volumeTick = 0f;
+        float dt = Time.deltaTime;
+        _volumeTick += dt;
+        bool doThin = _volumeTick >= 0.25f;
+        if (doThin) _volumeTick = 0f;
 
         for (int i = _volumeHeads.Count - 1; i >= 0; i--)
         {
             var vh = _volumeHeads[i];
             if (vh.head == null) { _volumeHeads.RemoveAt(i); continue; }
 
-            HideScalpCylinders(vh.head);   // 再生した円柱の毛も隠す
+            // フェードは毎フレーム進める（間引きの対象外）
+            if (vh.phase == HeadPhase.FadingOut)
+            {
+                vh.fadeT += dt / Mathf.Max(0.05f, fadeTime);
+                SetHeadAlpha(vh.head, 1f - Mathf.Clamp01(vh.fadeT));
+                if (vh.fadeT >= 1f)
+                {
+                    RebirthHead(vh);                 // 消えたので中身を新しい頭にリセット
+                    vh.phase = HeadPhase.FadingIn;
+                    vh.fadeT = 0f;
+                    SetHeadAlpha(vh.head, 0f);
+                }
+                continue;
+            }
+            if (vh.phase == HeadPhase.FadingIn)
+            {
+                vh.fadeT += dt / Mathf.Max(0.05f, fadeTime);
+                SetHeadAlpha(vh.head, Mathf.Clamp01(vh.fadeT));
+                if (vh.fadeT >= 1f) { SetHeadAlpha(vh.head, 1f); vh.phase = HeadPhase.Alive; }
+                continue;
+            }
 
-            // 残っている頭皮毛の割合に応じて生え際を後退させる＝抜けるほどハゲ上がる
+            // Alive: 薄毛の反映は間引き（0.25秒ごと）
+            if (!doThin) continue;
+            HideScalpCylinders(vh.head);
+
             int live = CountActiveScalpStrands(vh.head);
             float frac = Mathf.Clamp01((float)live / vh.refCount);
             float boost = (1f - frac) * capRecede;
             if (Mathf.Abs(boost - vh.lastBoost) >= 0.02f) RebuildVolumeMesh(vh, boost);
+
+            // 完全にハゲたら、生やし直さずフェードアウト → 世代交代
+            if (rebirthCycle && live == 0) { vh.phase = HeadPhase.FadingOut; vh.fadeT = 0f; }
         }
+    }
+
+    // ハゲて消えた頭を、新しいふさふさの頭に作り替える（毛を満タンに補充し、別人にする）。
+    void RebirthHead(VolumeHead vh)
+    {
+        var head = vh.head;
+        var oh = head.GetComponent<OrbitingHead>();
+
+        // 頭皮毛を満タンに補充（PlanetController の再生成をそのまま使う。regrow は止めてあるので二重にならない）
+        var pc = GetComponent("PlanetController") as MonoBehaviour;
+        if (pc != null && oh != null)
+        {
+            var mi = pc.GetType().GetMethod("RegrowHair",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (mi != null) mi.Invoke(pc, new object[] { oh });
+        }
+
+        // 別人にする（新しい頭が生まれた感）
+        if (oh != null)
+        {
+            oh.personName = _rebornNames[_rebornIdx % _rebornNames.Length];
+            oh.personAge  = Random.Range(18, 61);
+            _rebornIdx++;
+        }
+
+        // 毛を満タンで焼き直す
+        HideScalpCylinders(head);
+        vh.refCount = Mathf.Max(1, CountActiveScalpStrands(head));
+        vh.lastBoost = -1f;
+        RebuildVolumeMesh(vh, 0f);
+    }
+
+    // 頭（モデル・眼鏡・毛）の透明度をまとめて設定する（フェード用）。
+    void SetHeadAlpha(Transform head, float a)
+    {
+        a = Mathf.Clamp01(a);
+        foreach (var r in head.GetComponentsInChildren<Renderer>())
+        {
+            if (!r.enabled || r.name == "_Outline") continue;   // 隠した円柱・アウトラインは対象外
+            var mats = r.sharedMaterials;
+            for (int i = 0; i < mats.Length; i++) if (mats[i] != null) SetMatAlpha(mats[i], a);
+        }
+    }
+
+    static void SetMatAlpha(Material m, float a)
+    {
+        if (a < 0.999f)   // 半透明へ
+        {
+            m.SetFloat("_Surface", 1f);
+            m.SetFloat("_SrcBlend", (float)(int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)(int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetFloat("_ZWrite", 0f);
+            m.DisableKeyword("_SURFACE_TYPE_OPAQUE");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        }
+        else              // 不透明へ戻す
+        {
+            m.SetFloat("_Surface", 0f);
+            m.SetFloat("_SrcBlend", (float)(int)UnityEngine.Rendering.BlendMode.One);
+            m.SetFloat("_DstBlend", (float)(int)UnityEngine.Rendering.BlendMode.Zero);
+            m.SetFloat("_ZWrite", 1f);
+            m.EnableKeyword("_SURFACE_TYPE_OPAQUE");
+            m.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = -1;
+        }
+        if (m.HasProperty("_BaseColor")) { var c = m.GetColor("_BaseColor"); c.a = a; m.SetColor("_BaseColor", c); }
+        if (m.HasProperty("_Color"))     { var c = m.GetColor("_Color");     c.a = a; m.SetColor("_Color", c); }
     }
 
     int CountActiveScalpStrands(Transform head)
@@ -940,6 +1160,23 @@ public class PlanetRealHeads : MonoBehaviour
     /// 皮脂の乗った所だけ強く照り返す（粗さの分布）。この三つが揃って初めて、
     /// 光の当たり方が「肌のそれ」になる。色より先に、この三つを渡す。
     /// </summary>
+    // 髪用マテリアル。プラスチックに見えないよう、つや消し寄り＋わずかなシーン。
+    // キャップ（地）は暗くマット、毛は少し明るく艶を上げて、暗い地の上で光を拾わせる。
+    Material MakeHairMaterial(Color baseColor, float smoothness)
+    {
+        Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+        var m = new Material(sh);
+        baseColor.a = 1f;
+        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", baseColor);
+        if (m.HasProperty("_Color")) m.SetColor("_Color", baseColor);
+        if (m.HasProperty("_Metallic")) m.SetFloat("_Metallic", 0f);
+        if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
+        if (m.HasProperty("_Glossiness")) m.SetFloat("_Glossiness", smoothness);
+        if (m.HasProperty("_SpecularHighlights")) m.SetFloat("_SpecularHighlights", 1f);
+        if (m.HasProperty("_EnvironmentReflections")) m.SetFloat("_EnvironmentReflections", 0f); // 環境の映り込みで硬く見えるのを防ぐ
+        return m;
+    }
+
     Material MakeSkinMaterial()
     {
         Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");

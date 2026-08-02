@@ -400,7 +400,7 @@ MonoBehaviour:
   backgroundColor: {r: 0.22, g: 0.22, b: 0.23, a: 1}
   cameraDistance: 3
   buildGlobe: 0
-  regrowDelay: 1.25
+  regrowDelay: 1e+9
   dustCount: 240
   pollenCount: 120
   dustColor: {r: 0.55, g: 0.5, b: 0.45, a: 1}
@@ -456,11 +456,11 @@ MonoBehaviour:
   crownFlatten: 0.06
   crownDirection: {x: 0.12, y: 0.95, z: -0.28}
   hairlineFront: 0.42
-  hairlineBack: 0.02
+  hairlineBack: -0.12
   lift: 0.14
-  flowJitter: 0.16
+  flowJitter: 0.1
   scalpOffset: 0.008
-  faceAvoidance: 1.1
+  faceAvoidance: 1
   hideBelowHairline: 1
   focusMode: 0
   focusSpinDeg: 12
@@ -468,14 +468,18 @@ MonoBehaviour:
   focusDistance: 1.6
   volumeHair: 1
   hairCap: 1
-  capOffset: 0.003
-  capRecede: 0.5
-  volumeStrandCount: 420
-  volumeStrandLength: 0.3
-  volumeThickness: 0.006
+  capOffset: 0.006
+  capRecede: 0.6
+  capFrontLift: 0
+  sideburn: 0
+  volumeStrandCount: 700
+  volumeStrandLength: 0.06
+  volumeThickness: 0.004
   volumeSides: 3
-  volumeSegments: 6
-  volumeLift: 0.06
+  volumeSegments: 5
+  volumeLift: 0.05
+  rebirthCycle: 1
+  fadeTime: 1.5
 --- !u!1001 &784343960
 PrefabInstance:
   m_ObjectHideFlags: 0
