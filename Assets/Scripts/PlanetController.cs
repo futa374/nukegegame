@@ -39,6 +39,10 @@ public class PlanetController : MonoBehaviour
     public int headSeed = 12345;
     [Tooltip("頭に生える毛の本数（これだけ抜けるとハゲる）")]
     public int headHairCount = 45;
+    [Tooltip("頭皮の毛を円柱で作るか。PlanetRealHeads のボリューム毛を使う場合、"
+           + "この円柱は隠されて一度も描かれないので、切ると無駄な生成を省ける。"
+           + "本数だけが「あと何本抜けるか」として効く。")]
+    public bool scalpHairGeometry = true;
     [Tooltip("顔テクスチャの向き調整（度）。顔が横向きなら90/180で合わせる")]
     public float faceYawOffset = 0f;
 
@@ -176,15 +180,24 @@ public class PlanetController : MonoBehaviour
         hair.birthTimeString = GameClock.Instance != null ? GameClock.Instance.TimeString : "Unknown";
         Vector3 axis = Random.onUnitSphere;
         float drift = Random.Range(driftSpeedMin, driftSpeedMax);
+        // 形は頭ごとに違う。太い髪型の頭からは太く、長い髪型の頭からは長い毛が落ちる。
         hair.Init(center, globeRadius + 0.12f, spawn, head.hairMat,
-                  hairThickness, hairLength, fallSpeed, drift, axis);
+                  hairThickness * head.hairThicknessScale, hairLength * head.hairLengthScale,
+                  fallSpeed, drift, axis, head.hairCurl);
         _hairs.Add(hair);
 
         while (_hairs.Count > maxHairs)
         {
             var old = _hairs[0];
             _hairs.RemoveAt(0);
-            if (old != null) Destroy(old.gameObject);
+            if (old == null) continue;
+
+            // 上限に達しても、落ちている毛を消してはいけない。
+            // 消すと地表に何も積もらなくなる（供給を上げると全部ここで捨てられる）。
+            // いちばん古い毛は、その場で地表へ降ろして積もらせる。
+            var fh = old.GetComponent<FieldHair>();
+            if (fh != null) { fh.ForceLand(); continue; }
+            old.SettleNow();
         }
     }
 
@@ -392,7 +405,7 @@ public class PlanetController : MonoBehaviour
             root.transform.SetParent(parent, false);
             root.transform.localPosition = d * rHead * 0.96f;
             root.transform.localRotation = Quaternion.LookRotation(d, Vector3.up);
-            PlanetHair.BuildStrand(root, scalpHairLength, hairThickness, mat);
+            if (scalpHairGeometry) PlanetHair.BuildStrand(root, scalpHairLength, hairThickness, mat);
             oh.scalpHairs.Add(root);
         }
     }

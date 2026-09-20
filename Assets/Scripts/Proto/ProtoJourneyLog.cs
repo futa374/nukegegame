@@ -47,11 +47,19 @@ public class ProtoJourneyLog : MonoBehaviour
     [Header("表示")]
     public int  fontSize = 12;
     public int  listRows = 16;
+
+    [Header("記録の上限")]
+    // 何十万本と積もる。全部の軌跡を保持するとメモリが持たないので、
+    // 軌跡と出来事は先頭から一定数だけ持ち、それ以降は一行の要約だけ残す。
+    // 金色のワイヤーフレームは、軌跡を持っているぶんで描く。
+    [Tooltip("軌跡と出来事を保持するレポート数。これを超えた分は一行の要約のみ。")]
+    public int maxDetailedReports = 30000;
     public Color trailColor = new Color(1f, 0.82f, 0.35f);
     public float trailWidth = 0.010f;
 
     readonly List<Report> _reports = new List<Report>();
     public IReadOnlyList<Report> Reports => _reports;
+    static readonly List<(float t, string what)> _noEvents = new List<(float, string)>();
 
     int  _selected = -1;
     bool _panelOpen = true;
@@ -66,45 +74,76 @@ public class ProtoJourneyLog : MonoBehaviour
 
     void Start()
     {
-        var g = GameObject.Find("Globe");
-        if (g != null)
+        if (_globe != null) return;                       // 外から渡されていればそれを使う
+        var g = GameObject.Find("Globe");                 // proto1 の自前シーン
+        if (g == null)
         {
-            _globe = g.transform;
-            var mf = g.GetComponent<MeshFilter>();
-            if (mf != null) ProtoGeo.Calibrate(mf.sharedMesh);
+            var spin = FindAnyObjectByType<EarthSpin>();  // 既存シーンの自転する地球
+            if (spin != null) g = spin.gameObject;
         }
+        if (g != null) { _globe = g.transform; EnsureCalibrated(); }
     }
 
     public void Record(ProtoHair h)
     {
+        var r = Build(h.ownerName, h.transform.position, h.airTime, h.travelDistance,
+                      h.maxAltitude, h.peakSpeed, h.caughtCount, h.contactCount,
+                      h.events, h.Trail, _globe);
+        r.hair = h;
+        h.reportIndex = _reports.Count - 1;
+    }
+
+    /// <summary>既存シーンに組み込んだ版（FieldHair）からの記録。球は呼び出し側が渡す。</summary>
+    public void Record(FieldHair h, Transform globe)
+    {
+        if (_globe == null && globe != null) { _globe = globe; EnsureCalibrated(); }
+        Build(h.ownerName, h.transform.position, h.airTime, h.travelDistance,
+              h.maxAltitude, h.peakSpeed, h.caughtCount, h.contactCount,
+              h.events, h.Trail, globe);
+    }
+
+    void EnsureCalibrated()
+    {
+        if (_globe == null) return;
+        var mf = _globe.GetComponent<MeshFilter>();
+        if (mf != null) ProtoGeo.Calibrate(mf.sharedMesh);
+    }
+
+    Report Build(string owner, Vector3 worldPos, float airTime, float travel,
+                 float maxAlt, float peak, int caught, int contacts,
+                 List<(float t, string what)> ev, IReadOnlyList<Vector3> trail, Transform globe)
+    {
         // 着地点を球のローカルへ戻してから緯度経度を読む。星は自転している。
         float lat = 0f, lon = 0f;
-        if (_globe != null)
-        {
-            Vector3 local = _globe.InverseTransformPoint(h.transform.position);
-            ProtoGeo.LatLon(local, out lat, out lon);
-        }
+        if (globe != null) ProtoGeo.LatLon(globe.InverseTransformPoint(worldPos), out lat, out lon);
 
         var r = new Report
         {
             index          = _reports.Count + 1,
-            owner          = h.ownerName,
-            airTime        = h.airTime,
-            travelDistance = h.travelDistance,
-            maxAltitude    = h.maxAltitude,
-            peakSpeed      = h.peakSpeed,
-            caughtCount    = h.caughtCount,
-            contactCount   = h.contactCount,
+            owner          = owner,
+            airTime        = airTime,
+            travelDistance = travel,
+            maxAltitude    = maxAlt,
+            peakSpeed      = peak,
+            caughtCount    = caught,
+            contactCount   = contacts,
             lat = lat, lon = lon,
             region         = ProtoGeo.Region(lat, lon),
             landedClock    = System.TimeSpan.FromSeconds(Time.timeSinceLevelLoad).ToString(@"hh\:mm\:ss"),
-            events         = new List<(float, string)>(h.events),
-            trail          = new List<Vector3>(h.Trail).ToArray(),
-            hair           = h,
         };
+        bool detailed = _reports.Count < maxDetailedReports;
+        r.events = detailed ? new List<(float, string)>(ev) : _noEvents;
+        r.trail  = detailed ? new List<Vector3>(trail).ToArray() : null;
         r.headline = $"#{r.index:D3}  {r.owner}  {r.airTime,5:F1}s  {r.region}";
         _reports.Add(r);
-        h.reportIndex = _reports.Count - 1;
+        return r;
+    }
+
+    /// <summary>組み込み先の星を外から教える。</summary>
+    public void SetGlobe(Transform globe)
+    {
+        _globe = globe;
+        EnsureCalibrated();
     }
 
     // ------------------------------------------------------------------
@@ -270,8 +309,13 @@ public class ProtoJourneyLog : MonoBehaviour
         _sSel  = new GUIStyle(_s); _sSel.normal.textColor   = new Color(0.2f, 0.15f, 0.05f, 1f);
     }
 
+    /// <summary>終わりの場面では画面から引き上げる。読むための表示が、見る邪魔になる。</summary>
+    public bool hidden;
+    public void Hide() { hidden = true; _panelOpen = false; HideTrail(); Highlight(null); }
+
     void OnGUI()
     {
+        if (hidden) return;
         BuildStyles();
         float lh = fontSize + 6f;
 
@@ -314,7 +358,10 @@ public class ProtoJourneyLog : MonoBehaviour
             _scrollToSelected = false;
         }
         _scroll = GUI.BeginScrollView(view, _scroll, content);
-        for (int i = 0; i < _reports.Count; i++)
+        // 見えている行だけ描く。何十万件あっても、描くのは十数行。
+        int first = Mathf.Max(0, Mathf.FloorToInt(_scroll.y / lh) - 1);
+        int last  = Mathf.Min(_reports.Count, first + Mathf.CeilToInt(view.height / lh) + 3);
+        for (int i = first; i < last; i++)
         {
             var rect = new Rect(2, i * lh, panelW - 36, lh);
             bool sel = i == _selected;

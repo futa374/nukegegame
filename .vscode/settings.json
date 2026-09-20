@@ -66,5 +66,5 @@
     "explorer.fileNesting.patterns": {
         "*.sln": "*.csproj"
     },
-    "dotnet.defaultSolution": "hairgameprotype.slnx"
+    "dotnet.defaultSolution": "抜け毛景観学.slnx"
 }

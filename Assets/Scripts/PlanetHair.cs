@@ -41,9 +41,14 @@ public class PlanetHair : MonoBehaviour
     void OnDisable() { _all.Remove(this); }
     void OnDestroy() { _all.Remove(this); }
 
+    // この毛の形。地表の蓄積が、同じ形の毛どうしをまとめるときに読む。
+    [System.NonSerialized] public float strandThickness, strandLength, strandCurl = 1f;
+
     public void Init(Vector3 center, float landRadius, Vector3 startPos, Material mat,
-                     float thickness, float length, float fallSpeed, float driftDegPerSec, Vector3 driftAxis)
+                     float thickness, float length, float fallSpeed, float driftDegPerSec, Vector3 driftAxis,
+                     float curl = 1f)
     {
+        strandThickness = thickness; strandLength = length; strandCurl = curl;
         _center = center;
         _landRadius = landRadius;
         Vector3 rel = startPos - center;
@@ -55,7 +60,7 @@ public class PlanetHair : MonoBehaviour
         _bobPhase = Random.Range(0f, 6.28318f);
         _spin = Random.Range(0f, 360f);
         _spinSpeed = Random.Range(-25f, 25f);
-        BuildStrand(gameObject, length, thickness, mat);
+        BuildStrand(gameObject, length, thickness, mat, curl);
         GetComponentsInChildren<Renderer>(_renderers);
 
         // ホバー検出用コライダー（ストランドのローカルZ軸方向に沿ったカプセル）
@@ -95,8 +100,19 @@ public class PlanetHair : MonoBehaviour
         _outlineObjects.Clear();
     }
 
+    /// <summary>
+    /// 外部（静電気の場など）がこの毛を動かしている間 true。
+    /// 自前の落下は止まるが、絡まり判定や輪郭表示はそのまま使える。
+    /// 既定は false なので、これまでのシーンの挙動は変わらない。
+    /// </summary>
+    [System.NonSerialized] public bool drivenExternally;
+
+    /// <summary>外部駆動の毛が地表に着いたときに呼ぶ。蓄積システムへ引き渡す。</summary>
+    public void SettleNow() { Settle(); }
+
     void Update()
     {
+        if (drivenExternally) return;
         if (_tangled) return;
 
         float dt = Time.deltaTime;
@@ -185,13 +201,14 @@ public class PlanetHair : MonoBehaviour
     /// 局所 Z 軸に沿った、ゆるく曲がる細い毛を円柱で作る（元の質感）。影も落とす。
     /// go の子として円柱セグメントを生成する（頭皮の毛・落ちる毛の両方で使う）。
     /// </summary>
-    public static void BuildStrand(GameObject go, float length, float thickness, Material mat)
+    public static void BuildStrand(GameObject go, float length, float thickness, Material mat, float curl = 1f)
     {
-        int seg = 4;
-        Vector3 prev = PointOnStrand(0f, length);
+        // 癖毛は折れ点を増やして、うねりが角張らないようにする
+        int seg = curl > 1.4f ? 6 : 4;
+        Vector3 prev = PointOnStrand(0f, length, curl);
         for (int i = 1; i <= seg; i++)
         {
-            Vector3 p = PointOnStrand((float)i / seg, length);
+            Vector3 p = PointOnStrand((float)i / seg, length, curl);
             // 毛先へ向けて細くする。棒ではなく毛に見せる。
             float tm = ((float)i - 0.5f) / seg;
             float th = thickness * Mathf.Lerp(1f, 0.3f, tm);
@@ -200,12 +217,14 @@ public class PlanetHair : MonoBehaviour
         }
     }
 
-    static Vector3 PointOnStrand(float t, float length)
+    public static Vector3 PointOnStrand(float t, float length, float curl = 1f)
     {
         float z = (t - 0.5f) * length;
         // ゆるいカール。硬い直線の棒に見えないよう、面内で少しうねらせる。
-        float x = Mathf.Sin(t * Mathf.PI * 1.7f) * length * 0.22f;
-        float y = Mathf.Sin(t * Mathf.PI * 0.9f) * length * 0.08f;
+        // curl で振幅と波数を変える。0 に近いほど直毛、大きいほど何度も折れる癖毛。
+        float waves = Mathf.Lerp(1.0f, 2.6f, Mathf.Clamp01((curl - 0.5f) / 1.5f));
+        float x = Mathf.Sin(t * Mathf.PI * 1.7f * waves) * length * 0.22f * curl;
+        float y = Mathf.Sin(t * Mathf.PI * 0.9f * waves) * length * 0.08f * curl;
         return new Vector3(x, y, z);
     }
 

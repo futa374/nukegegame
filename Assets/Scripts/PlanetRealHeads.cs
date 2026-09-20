@@ -83,6 +83,103 @@ public class PlanetRealHeads : MonoBehaviour
     [Tooltip("毛が顔へ流れるのをどれだけ避けるか。1でほぼ真横・後ろへ回す。")]
     [Range(0f, 1.5f)] public float faceAvoidance = 1.1f;
 
+    // ==================================================================
+    // 髪型と毛質のスタイル
+    //
+    // 同じ顔の頭部は一つとしてない。頭髪の形状、毛質、長さ、色はみんな異なる。
+    // 上の「髪型」の各値は全頭共通の既定として残し、こちらのプリセットを頭ごとに
+    // 割り当てる。生成コードは共通の値を読むので、ある頭を作る間だけプリセットの値を
+    // 差し込み、終わったら戻す（PushStyle / PopStyle）。既存の生成手順には触れない。
+    // ==================================================================
+
+    [System.Serializable]
+    public class HairStyle
+    {
+        public string name = "標準";
+        [Tooltip("正面の生え際。高いほど額が広い。")]       [Range(0f, 1f)]    public float hairlineFront = 0.42f;
+        [Tooltip("後ろ側の生え際の下限。")]                 [Range(-0.5f, 0.6f)] public float hairlineBack = 0.02f;
+        [Tooltip("もみあげ。0でなし。")]                     [Range(0f, 0.8f)]  public float sideburn = 0.5f;
+        [Tooltip("前髪の透け。前側だけ地を上げて毛を垂らす。")] [Range(0f, 0.5f)] public float capFrontLift = 0.18f;
+        [Tooltip("毛流れの乱れ。0で整い、大きいと癖毛。")]   [Range(0f, 0.6f)]  public float flowJitter = 0.16f;
+        [Tooltip("毛の本数。")]                              public int   strandCount = 260;
+        [Tooltip("毛の長さ。")]                              public float strandLength = 0.12f;
+        [Tooltip("毛の太さ。細いほど繊細。")]                public float thickness = 0.0035f;
+        [Tooltip("毛の浮き。0で頭皮に寝る、大きいとふわつく。")] [Range(0f, 1f)] public float lift = 0.08f;
+        [Tooltip("毛の色。")]                                public Color color = new Color(0.07f, 0.07f, 0.08f);
+        [Tooltip("艶。")]                                    [Range(0f, 1f)]    public float gloss = 0.28f;
+    }
+
+    [Header("髪型と毛質のスタイル（頭ごとに割り当て）")]
+    [Tooltip("オンなら、頭ごとに下のプリセットからひとつ選ぶ。オフなら上の共通値をそのまま使う。")]
+    public bool varyHairStyles = true;
+    public HairStyle[] hairStyles = {
+        new HairStyle { name = "黒髪・短髪",
+            hairlineFront = 0.42f, hairlineBack = 0.02f, sideburn = 0.5f, capFrontLift = 0.18f, flowJitter = 0.16f,
+            strandCount = 260, strandLength = 0.12f, thickness = 0.0035f, lift = 0.08f,
+            color = new Color(0.07f, 0.07f, 0.08f), gloss = 0.28f },
+        // 長さは 0.16 まで。それ以上だと側頭部の毛が顎まで回り込んで、髭に見える。
+        new HairStyle { name = "長め・重い",
+            hairlineFront = 0.36f, hairlineBack = -0.05f, sideburn = 0.45f, capFrontLift = 0.10f, flowJitter = 0.10f,
+            strandCount = 340, strandLength = 0.16f, thickness = 0.0040f, lift = 0.04f,
+            color = new Color(0.12f, 0.08f, 0.06f), gloss = 0.34f },
+        new HairStyle { name = "白髪まじり・細い",
+            hairlineFront = 0.50f, hairlineBack = 0.04f, sideburn = 0.35f, capFrontLift = 0.22f, flowJitter = 0.22f,
+            strandCount = 220, strandLength = 0.11f, thickness = 0.0025f, lift = 0.10f,
+            color = new Color(0.62f, 0.60f, 0.57f), gloss = 0.18f },
+        new HairStyle { name = "癖毛・太い",
+            hairlineFront = 0.40f, hairlineBack = 0.00f, sideburn = 0.45f, capFrontLift = 0.14f, flowJitter = 0.50f,
+            strandCount = 300, strandLength = 0.15f, thickness = 0.0052f, lift = 0.26f,
+            color = new Color(0.09f, 0.07f, 0.06f), gloss = 0.14f },
+        new HairStyle { name = "後退・薄い",
+            hairlineFront = 0.66f, hairlineBack = 0.10f, sideburn = 0.20f, capFrontLift = 0.28f, flowJitter = 0.20f,
+            strandCount = 140, strandLength = 0.10f, thickness = 0.0028f, lift = 0.12f,
+            color = new Color(0.16f, 0.13f, 0.11f), gloss = 0.22f },
+        new HairStyle { name = "茶髪・ミディアム",
+            hairlineFront = 0.40f, hairlineBack = -0.02f, sideburn = 0.50f, capFrontLift = 0.16f, flowJitter = 0.14f,
+            strandCount = 290, strandLength = 0.17f, thickness = 0.0036f, lift = 0.09f,
+            color = new Color(0.34f, 0.20f, 0.11f), gloss = 0.42f },
+    };
+
+    // PushStyle で退避する共通値
+    float _sHairlineFront, _sHairlineBack, _sSideburn, _sCapFrontLift, _sFlowJitter;
+    int _sStrandCount; float _sStrandLength, _sThickness, _sLift;
+    bool _stylePushed;
+
+    /// <summary>ある頭を作る・描き直す間だけ、その頭のスタイルを共通値へ差し込む。</summary>
+    void PushStyle(HairStyle s)
+    {
+        if (s == null || _stylePushed) return;
+        _stylePushed = true;
+        _sHairlineFront = hairlineFront; _sHairlineBack = hairlineBack; _sSideburn = sideburn;
+        _sCapFrontLift = capFrontLift; _sFlowJitter = flowJitter;
+        _sStrandCount = volumeStrandCount; _sStrandLength = volumeStrandLength;
+        _sThickness = volumeThickness; _sLift = volumeLift;
+
+        hairlineFront = s.hairlineFront; hairlineBack = s.hairlineBack; sideburn = s.sideburn;
+        capFrontLift = s.capFrontLift; flowJitter = s.flowJitter;
+        volumeStrandCount = s.strandCount; volumeStrandLength = s.strandLength;
+        volumeThickness = s.thickness; volumeLift = s.lift;
+    }
+
+    void PopStyle()
+    {
+        if (!_stylePushed) return;
+        _stylePushed = false;
+        hairlineFront = _sHairlineFront; hairlineBack = _sHairlineBack; sideburn = _sSideburn;
+        capFrontLift = _sCapFrontLift; flowJitter = _sFlowJitter;
+        volumeStrandCount = _sStrandCount; volumeStrandLength = _sStrandLength;
+        volumeThickness = _sThickness; volumeLift = _sLift;
+    }
+
+    /// <summary>頭ごとに安定してスタイルを選ぶ。同じ名前の頭は毎回同じ髪型になる。</summary>
+    HairStyle PickStyle(Transform head, int salt = 0)
+    {
+        if (!varyHairStyles || hairStyles == null || hairStyles.Length == 0) return null;
+        int h = head.name.GetHashCode() ^ (salt * 7919);
+        int i = ((h % hairStyles.Length) + hairStyles.Length) % hairStyles.Length;
+        return hairStyles[i];
+    }
+
     [Header("動作")]
     [Tooltip("生え際より下の毛を隠す（生え際を作るために間引く）")]
     public bool hideBelowHairline = true;
@@ -112,6 +209,9 @@ public class PlanetRealHeads : MonoBehaviour
     [Range(0f, 0.8f)] public float sideburn = 0.5f;
     [Tooltip("キャップ上に生やす毛の本数（見た目の毛流れ・質感）。多いほど重い。")]
     public int volumeStrandCount = 260;
+    [Tooltip("毛の密度。髪型ごとの本数にこの倍率をかける。生え際・毛流れ・長さは変わらず、"
+           + "隙間が埋まるだけなので、髪型はそのままで毛量だけ増える。")]
+    [Range(0.5f, 8f)] public float hairDensity = 1f;
     [Tooltip("毛の長さ。キャップ上の毛流れとして短めが自然。")]
     public float volumeStrandLength = 0.12f;
     [Tooltip("毛1本の太さ（細いほど自然）")]
@@ -257,6 +357,11 @@ public class PlanetRealHeads : MonoBehaviour
             0f,
             ((float)rnd.NextDouble() - 0.5f) * 0.25f)).normalized;
 
+        // この頭の髪型と毛質。作っている間だけ共通値へ差し込む。
+        var style = PickStyle(head);
+        PushStyle(style);
+        ApplyStyleMaterial(head, style);
+
         foreach (Transform strand in head)
         {
             if (!strand.name.StartsWith("ScalpHair")) continue;
@@ -264,7 +369,31 @@ public class PlanetRealHeads : MonoBehaviour
         }
 
         if (volumeHair && head.Find("HairVolume") == null)
-            BuildVolumeHair(head, crown, skullScale, rnd);
+            BuildVolumeHair(head, crown, skullScale, rnd, style);
+
+        PopStyle();
+    }
+
+    /// <summary>
+    /// 頭ごとの毛の色と艶を、抜け毛にも渡す。OrbitingHead.hairMat は PlanetController が
+    /// 抜け毛を作るときに使うので、ここを差し替えれば、その頭から落ちた毛は同じ色になる。
+    /// </summary>
+    void ApplyStyleMaterial(Transform head, HairStyle style)
+    {
+        if (style == null) return;
+        var orbit = head.GetComponent<OrbitingHead>();
+        if (orbit == null) return;
+        orbit.hairMat = MakeHairMaterial(style.color, style.gloss);
+
+        // 落ちる毛の形も髪型に揃える。頭の上の毛の値（既定 太さ0.0035・長さ0.12）に対する
+        // 比で渡し、PlanetController の共通値に掛けてもらう。うねりは毛流れの乱れから。
+        orbit.hairThicknessScale = Mathf.Clamp(style.thickness / 0.0035f, 0.5f, 2.0f);
+        orbit.hairLengthScale    = Mathf.Clamp(style.strandLength / 0.12f, 0.6f, 1.8f);
+        orbit.hairCurl           = Mathf.Lerp(0.5f, 2.2f, Mathf.InverseLerp(0.08f, 0.55f, style.flowJitter));
+        // 頭皮に既に生えている円柱の毛にも同じ材質を
+        foreach (var r in head.GetComponentsInChildren<Renderer>())
+            if (r.transform.parent != null && r.transform.parent.name.StartsWith("ScalpHair"))
+                r.sharedMaterial = orbit.hairMat;
     }
 
     // ==================================================================
@@ -294,6 +423,10 @@ public class PlanetRealHeads : MonoBehaviour
         public Vector3[] capNorms;
         public float[]   capMargin;       // その頂点の (d.y - 生え際)。boost より大きい三角形だけ張る。
         public int[]     capTris;
+
+        public HairStyle style;           // この頭の髪型と毛質。描き直すときも同じ値で。
+        public Vector3   crown;           // つむじ。世代交代で毛を生やし直すときに使う。
+        public int       seed;
     }
     readonly List<VolumeHead> _volumeHeads = new List<VolumeHead>();
     float _volumeTick;
@@ -303,17 +436,20 @@ public class PlanetRealHeads : MonoBehaviour
     static readonly List<int>     _mt = new List<int>();        // サブメッシュ0＝キャップ（地）
     static readonly List<int>     _mtStrand = new List<int>();  // サブメッシュ1＝毛
 
-    void BuildVolumeHair(Transform head, Vector3 crown, Vector3 skullScale, System.Random rnd)
+    void BuildVolumeHair(Transform head, Vector3 crown, Vector3 skullScale, System.Random rnd, HairStyle style = null)
     {
         var orbit = head.GetComponent<OrbitingHead>();
-        Color hairCol = (orbit != null && orbit.hairMat != null && orbit.hairMat.HasProperty("_BaseColor"))
-            ? orbit.hairMat.GetColor("_BaseColor")
-            : new Color(0.05f, 0.042f, 0.037f);
-        // 地（キャップ）も毛も暗くマット。毛はごくわずかに明るくするだけ（トゲが目立たないように）。
+        Color hairCol = style != null ? style.color
+            : (orbit != null && orbit.hairMat != null && orbit.hairMat.HasProperty("_BaseColor"))
+                ? orbit.hairMat.GetColor("_BaseColor")
+                : new Color(0.05f, 0.042f, 0.037f);
+        float gloss = style != null ? style.gloss : 0.28f;
+        // 地（キャップ）は毛より暗くマット。毛はごくわずかに明るくするだけ（トゲが目立たないように）。
+        // 明るい毛（白髪など）では、暗い地が透けると不自然なので、地も毛の色に寄せる。
         Color capCol    = hairCol * 0.75f;
-        Color strandCol = Color.Lerp(hairCol, new Color(0.11f, 0.095f, 0.08f), 0.35f);
-        var capMat    = MakeHairMaterial(capCol, 0.16f);
-        var strandMat = MakeHairMaterial(strandCol, 0.28f);
+        Color strandCol = Color.Lerp(hairCol, new Color(0.11f, 0.095f, 0.08f), hairCol.grayscale > 0.3f ? 0.05f : 0.35f);
+        var capMat    = MakeHairMaterial(capCol, Mathf.Min(0.16f, gloss * 0.6f));
+        var strandMat = MakeHairMaterial(strandCol, gloss);
 
         // 頭モデルの表面（頭ローカル）を取得。毛の根も地の殻も、この実面に貼る。
         GetHeadSurface(head, out var sVerts, out var sNorms, out var sTris);
@@ -337,6 +473,9 @@ public class PlanetRealHeads : MonoBehaviour
             mf = go.GetComponent<MeshFilter>(),
             strands = strands,
             refCount = Mathf.Max(1, CountActiveScalpStrands(head)),
+            style = style,
+            crown = crown,
+            seed = head.name.GetHashCode(),
         };
         if (hairCap && sVerts != null) BuildCapFromSurface(vh, sVerts, sNorms, sTris);   // 隙間から肌が透けないための地
         _volumeHeads.Add(vh);
@@ -380,12 +519,15 @@ public class PlanetRealHeads : MonoBehaviour
     // 実面に根を置くので、耳の上・側頭部・後頭部にもちゃんと毛が付く。
     List<Vector3[]> BuildSurfaceStrands(Vector3[] verts, Vector3[] norms, Vector3 crown, System.Random rnd)
     {
-        var strands = new List<Vector3[]>(volumeStrandCount);
+        // 密度は本数だけを増やす。生やす条件（生え際）も流れの作り方も同じなので、
+        // 増えたぶんは既にある毛の隙間に入る。髪型は変わらず、密になる。
+        int want = Mathf.Max(1, Mathf.RoundToInt(volumeStrandCount * Mathf.Max(hairDensity, 0.01f)));
+        var strands = new List<Vector3[]>(want);
         if (verts == null || verts.Length == 0) return strands;
 
         int n = Mathf.Max(2, volumeSegments);
-        int attempts = volumeStrandCount * 10;
-        for (int k = 0; k < attempts && strands.Count < volumeStrandCount; k++)
+        int attempts = want * 10;
+        for (int k = 0; k < attempts && strands.Count < want; k++)
         {
             int idx = rnd.Next(verts.Length);
             Vector3 root = verts[idx];
@@ -530,6 +672,15 @@ public class PlanetRealHeads : MonoBehaviour
 
     // 生え際後退量 boost に応じて、キャップと毛を描いてメッシュを焼き直す（boost 大＝ハゲ上がる）
     void RebuildVolumeMesh(VolumeHead vh, float boost)
+    {
+        // 描き直しは薄毛の進行で何度も起きる。そのたび、この頭のスタイルの値で描く。
+        bool pushed = !_stylePushed && vh.style != null;
+        if (pushed) PushStyle(vh.style);
+        try { RebuildVolumeMeshCore(vh, boost); }
+        finally { if (pushed) PopStyle(); }
+    }
+
+    void RebuildVolumeMeshCore(VolumeHead vh, float boost)
     {
         vh.lastBoost = boost;
 
@@ -703,6 +854,33 @@ public class PlanetRealHeads : MonoBehaviour
             _rebornIdx++;
         }
 
+        // 別人なので髪型も毛質も変える。毛の芯線と地を、新しいスタイルで生やし直す。
+        var newStyle = PickStyle(head, _rebornIdx);
+        if (newStyle != null && newStyle != vh.style)
+        {
+            vh.style = newStyle;
+            ApplyStyleMaterial(head, newStyle);
+            PushStyle(newStyle);
+            try
+            {
+                var rnd = new System.Random(vh.seed ^ (_rebornIdx * 104729));
+                GetHeadSurface(head, out var sVerts, out var sNorms, out var sTris);
+                vh.strands = BuildSurfaceStrands(sVerts, sNorms, vh.crown, rnd);
+                if (hairCap && sVerts != null) BuildCapFromSurface(vh, sVerts, sNorms, sTris);
+                var mr = vh.mf.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    Color capCol = newStyle.color * 0.75f;
+                    Color strandCol = Color.Lerp(newStyle.color, new Color(0.11f, 0.095f, 0.08f),
+                                                 newStyle.color.grayscale > 0.3f ? 0.05f : 0.35f);
+                    mr.sharedMaterials = new[] {
+                        MakeHairMaterial(capCol, Mathf.Min(0.16f, newStyle.gloss * 0.6f)),
+                        MakeHairMaterial(strandCol, newStyle.gloss) };
+                }
+            }
+            finally { PopStyle(); }
+        }
+
         // 毛を満タンで焼き直す
         HideScalpCylinders(head);
         vh.refCount = Mathf.Max(1, CountActiveScalpStrands(head));
@@ -750,12 +928,16 @@ public class PlanetRealHeads : MonoBehaviour
 
     int CountActiveScalpStrands(Transform head)
     {
+        // 残りの毛は頭自身が持っている一覧が正。子を数え歩くより速く、
+        // 円柱を持たない（数だけの）毛も正しく数えられる。
+        var oh = head.GetComponent<OrbitingHead>();
+        if (oh != null) return oh.scalpHairs.Count;
+
         int c = 0;
         foreach (Transform strand in head)
         {
             if (!strand.name.StartsWith("ScalpHair")) continue;
             if (!strand.gameObject.activeSelf) continue;
-            if (strand.childCount == 0) continue;
             c++;
         }
         return c;
@@ -766,6 +948,7 @@ public class PlanetRealHeads : MonoBehaviour
         foreach (Transform strand in head)
         {
             if (!strand.name.StartsWith("ScalpHair")) continue;
+            if (strand.childCount == 0) continue;   // 円柱を持たない毛（＝数だけの毛）は何もしない
             var rs = strand.GetComponentsInChildren<Renderer>(true);
             for (int i = 0; i < rs.Length; i++) if (rs[i].enabled) rs[i].enabled = false;
         }
