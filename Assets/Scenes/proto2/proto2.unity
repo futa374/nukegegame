@@ -450,6 +450,84 @@ MonoBehaviour:
   skinShadow: {r: 0.62, g: 0.44, b: 0.36, a: 1}
   skinFlush: {r: 0.84, g: 0.55, b: 0.47, a: 1}
   skinTextureWidth: 1024
+  varyFaces: 1
+  faces:
+  - name: "\u9580\u7530"
+    texture: {fileID: 2800000, guid: 3a7557b724d2a4a21bd3f9074833dc9f, type: 3}
+    model: {fileID: 0}
+    normalMap: {fileID: 0}
+    occlusionMap: {fileID: 0}
+    maskMap: {fileID: 0}
+    glasses: 1
+    hairStyles: []
+  - name: "\u68EE\u7530"
+    texture: {fileID: 2800000, guid: b142736712b4d413ca631de8c8de5c24, type: 3}
+    model: {fileID: 919132149155446097, guid: 4ee5a7016f4774dcb83571dff3d7383c, type: 3}
+    normalMap: {fileID: 0}
+    occlusionMap: {fileID: 0}
+    maskMap: {fileID: 0}
+    glasses: 0
+    hairStyles:
+    - name: "\u3071\u3063\u3064\u3093\u524D\u9AEA\u30FB\u9ED2"
+      hairlineFront: 0.06
+      hairlineBack: -0.06
+      sideburn: 0.46
+      capFrontLift: 0.04
+      flowJitter: 0.08
+      strandCount: 380
+      strandLength: 0.115
+      thickness: 0.003
+      lift: 0.05
+      color: {r: 0.06, g: 0.055, b: 0.065, a: 1}
+      gloss: 0.36
+    - name: "\u524D\u4E0B\u304C\u308A\u30DC\u30D6\u30FB\u6697\u8910\u8272"
+      hairlineFront: 0.1
+      hairlineBack: -0.1
+      sideburn: 0.52
+      capFrontLift: 0.08
+      flowJitter: 0.12
+      strandCount: 350
+      strandLength: 0.13
+      thickness: 0.0032
+      lift: 0.07
+      color: {r: 0.11, g: 0.08, b: 0.07, a: 1}
+      gloss: 0.32
+    - name: "\u3075\u3093\u308F\u308A\u30DF\u30C7\u30A3\u30A2\u30E0\u30FB\u8336"
+      hairlineFront: 0.15
+      hairlineBack: -0.04
+      sideburn: 0.44
+      capFrontLift: 0.14
+      flowJitter: 0.24
+      strandCount: 330
+      strandLength: 0.125
+      thickness: 0.0034
+      lift: 0.2
+      color: {r: 0.3, g: 0.19, b: 0.12, a: 1}
+      gloss: 0.4
+    - name: "\u3086\u308B\u3044\u3046\u306D\u308A\u30FB\u6817"
+      hairlineFront: 0.12
+      hairlineBack: -0.02
+      sideburn: 0.4
+      capFrontLift: 0.12
+      flowJitter: 0.42
+      strandCount: 310
+      strandLength: 0.12
+      thickness: 0.0038
+      lift: 0.26
+      color: {r: 0.38, g: 0.25, b: 0.16, a: 1}
+      gloss: 0.3
+    - name: "\u7D30\u304F\u67D4\u3089\u304B\u3044\u30FB\u9ED2\u8910"
+      hairlineFront: 0.18
+      hairlineBack: 0
+      sideburn: 0.36
+      capFrontLift: 0.16
+      flowJitter: 0.16
+      strandCount: 420
+      strandLength: 0.11
+      thickness: 0.0024
+      lift: 0.1
+      color: {r: 0.09, g: 0.07, b: 0.07, a: 1}
+      gloss: 0.24
   width: 0.86
   occiput: 0.17
   jawTaper: 0.3

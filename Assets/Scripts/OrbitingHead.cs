@@ -230,6 +230,42 @@ public class OrbitingHead : MonoBehaviour
         transform.rotation = Quaternion.LookRotation(_fwd, _up);
     }
 
+    /// <summary>
+    /// 別の場所へ移って、新しい人として現れる。
+    /// 軌道を引き継ぐと、消えた所から同じ人がまた出てきたように見えてしまう。
+    /// 高さ（半径）と速さは保ち、位置・進む向き・回る向きだけを取り直す。
+    /// 他の頭から最も離れた候補を選ぶので、生まれた直後に押し合わない。
+    /// </summary>
+    public void Respawn(int tries = 16)
+    {
+        EnsureOrbit();
+        Vector3 bestUp = _up, bestFwd = _fwd;
+        float bestGap = -1f;
+        for (int i = 0; i < tries; i++)
+        {
+            Vector3 up = Random.onUnitSphere;
+            Vector3 p = center + up * radius;
+            float nearest = float.MaxValue;
+            for (int k = 0; k < _all.Count; k++)
+            {
+                var o = _all[k];
+                if (o == null || o == this) continue;
+                nearest = Mathf.Min(nearest, Vector3.Distance(p, o.transform.position));
+            }
+            if (nearest <= bestGap) continue;
+            Vector3 t = Vector3.Cross(up, Random.onUnitSphere);
+            if (t.sqrMagnitude < 1e-6f) t = Vector3.Cross(up, Vector3.right);
+            t = Vector3.ProjectOnPlane(t, up);
+            if (t.sqrMagnitude < 1e-6f) continue;
+            bestGap = nearest; bestUp = up; bestFwd = t.normalized;
+        }
+        _up = bestUp; _fwd = bestFwd;
+        speedDeg = Mathf.Abs(speedDeg) * (Random.value < 0.5f ? -1f : 1f);   // 回る向きも別人
+        orbitAxis = Vector3.Cross(_up, _fwd);
+        angleDeg = 0f;
+        Place();
+    }
+
     public bool RemoveOneHair()
     {
         while (scalpHairs.Count > 0)

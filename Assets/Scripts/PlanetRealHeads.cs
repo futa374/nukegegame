@@ -55,6 +55,33 @@ public class PlanetRealHeads : MonoBehaviour
     public Color skinFlush = new Color(0.84f, 0.55f, 0.47f);
     public int skinTextureWidth = 1024;
 
+    /// <summary>
+    /// 顔の種類。頭のメッシュは共通で、貼る顔だけを差し替える。
+    /// テクスチャは同じ UV の並びで作ること（目・鼻・口が同じ位置に来る）。
+    /// </summary>
+    [System.Serializable]
+    public class FaceVariant
+    {
+        public string name = "顔";
+        [Tooltip("肌のベースマップ。monden_face.png と同じ配置で作る。")]
+        public Texture2D texture;
+        [Tooltip("この顔だけの頭のかたち。未設定なら共通の headModel を使う。")]
+        public GameObject model;
+        [Tooltip("この顔に合う凹凸・影・艶の地図。UV の並びは頭のかたちごとに違うので、"
+               + "共通のものを流用すると別人の鼻の影が顔に乗る。無ければ使わない。")]
+        public Texture2D normalMap, occlusionMap, maskMap;
+        [Tooltip("この顔は眼鏡をかけているか。モデルのフレームを出すかどうかに使う。")]
+        public bool glasses = true;
+        [Tooltip("この顔だけの髪型。空なら共通の hairStyles から選ぶ。"
+               + "人によって似合う髪型は違うので、顔ごとに持たせられるようにしてある。")]
+        public HairStyle[] hairStyles;
+    }
+
+    [Header("顔の種類")]
+    [Tooltip("オンなら、頭ごとに下の一覧からひとつ選ぶ。空なら従来どおり skinTexture／monden_face を使う。")]
+    public bool varyFaces = true;
+    public FaceVariant[] faces;
+
     [Header("頭のかたち")]
     [Tooltip("横幅（1で球のまま）。人の頭は横に狭い。")]
     [Range(0.6f, 1.2f)] public float width = 0.86f;
@@ -174,10 +201,38 @@ public class PlanetRealHeads : MonoBehaviour
     /// <summary>頭ごとに安定してスタイルを選ぶ。同じ名前の頭は毎回同じ髪型になる。</summary>
     HairStyle PickStyle(Transform head, int salt = 0)
     {
-        if (!varyHairStyles || hairStyles == null || hairStyles.Length == 0) return null;
+        if (!varyHairStyles) return null;
+        // その頭がいま使っている顔が自前の髪型を持っていれば、そちらから選ぶ。
+        var face = FaceFor(head);
+        var set = (face != null && face.hairStyles != null && face.hairStyles.Length > 0)
+                ? face.hairStyles : hairStyles;
+        if (set == null || set.Length == 0) return null;
         int h = head.name.GetHashCode() ^ (salt * 7919);
-        int i = ((h % hairStyles.Length) + hairStyles.Length) % hairStyles.Length;
-        return hairStyles[i];
+        int i = ((h % set.Length) + set.Length) % set.Length;
+        return set[i];
+    }
+
+    // いまその頭が使っている顔。モデル・肌・髪型がばらばらの顔を見ないよう、
+    // 一度決めたものをここに控えて全員がこれを読む。
+    // （選び直す種がずれると、森田の頭に門田用の髪型が付く、といったことが起きる）
+    readonly Dictionary<Transform, FaceVariant> _faceOf = new Dictionary<Transform, FaceVariant>();
+
+    FaceVariant FaceFor(Transform head)
+    {
+        if (_faceOf.TryGetValue(head, out var f)) return f;
+        f = PickFace(head, 0);
+        _faceOf[head] = f;
+        return f;
+    }
+
+    /// <summary>頭ごとに安定して顔を選ぶ。髪型とは別の種で混ぜ、同じ組み合わせが並ばないようにする。</summary>
+    FaceVariant PickFace(Transform head, int salt = 0)
+    {
+        if (!varyFaces || faces == null || faces.Length == 0) return null;
+        int h = head.name.GetHashCode() ^ (salt * 6529) ^ 0x5bf03635;
+        int i = ((h % faces.Length) + faces.Length) % faces.Length;
+        var f = faces[i];
+        return (f != null && f.texture != null) ? f : null;
     }
 
     [Header("動作")]
@@ -852,7 +907,16 @@ public class PlanetRealHeads : MonoBehaviour
             oh.personName = _rebornNames[_rebornIdx % _rebornNames.Length];
             oh.personAge  = Random.Range(18, 61);
             _rebornIdx++;
+
+            // 消えた場所の続きから現れると、同じ人が生え直したように見える。
+            // 透明になっているいまのうちに、別の場所へ移してから現れさせる。
+            oh.Respawn();
         }
+
+        // 別人なので顔も差し替える。先に控えを更新してから貼り替えるので、
+        // このあと選ぶ髪型も新しい顔のものになる。
+        _faceOf[head] = PickFace(head, _rebornIdx);
+        ApplyFace(head, _faceOf[head]);
 
         // 別人なので髪型も毛質も変える。毛の芯線と地を、新しいスタイルで生やし直す。
         var newStyle = PickStyle(head, _rebornIdx);
@@ -1139,7 +1203,9 @@ public class PlanetRealHeads : MonoBehaviour
 
         if (head.Find("HeadModel") != null) return;   // 二重適用を避ける
 
-        var go = Instantiate(headModel, head);
+        var face = FaceFor(head);
+        var src = (face != null && face.model != null) ? face.model : headModel;
+        var go = Instantiate(src, head);
         go.name = "HeadModel";
         go.transform.localRotation = Quaternion.Euler(0f, modelYaw, 0f);
 
@@ -1155,7 +1221,9 @@ public class PlanetRealHeads : MonoBehaviour
 
         // 頭のメッシュが二つのサブメッシュ（skin / frame）を持つ場合、
         // フレームは肌とは別のマテリアルで塗れる。眼鏡を重ねる必要はない。
-        var mat = MakeSkinMaterial();
+        var mat = MakeSkinMaterial(face);
+        // 眼鏡をかけていない顔は、フレームのサブメッシュを描かない。
+        bool wearsGlasses = face == null || face.glasses;
         bool frameInMesh = false;
         foreach (var r in go.GetComponentsInChildren<Renderer>())
         {
@@ -1165,7 +1233,10 @@ public class PlanetRealHeads : MonoBehaviour
             {
                 var mats = new Material[sub];
                 mats[0] = mat;
-                for (int i = 1; i < sub; i++) mats[i] = MakeGlassesMaterial();
+                // マテリアルを null にすると、そのサブメッシュは描かれない。
+                // 透明なマテリアルだとフェード処理に不透明へ戻されてしまう。
+                var frameMat = wearsGlasses ? MakeGlassesMaterial() : null;
+                for (int i = 1; i < sub; i++) mats[i] = frameMat;
                 r.sharedMaterials = mats;
                 frameInMesh = true;
             }
@@ -1176,7 +1247,56 @@ public class PlanetRealHeads : MonoBehaviour
         // 付けたあとだと、フレームの上から毛が生えてしまう。
         BuildRadiusTable(go.transform);
 
-        if (showGlasses && !frameInMesh) AttachGlasses(go.transform);
+        if (showGlasses && wearsGlasses && !frameInMesh) AttachGlasses(go.transform);
+    }
+
+    /// <summary>
+    /// すでに立っている頭の顔だけを貼り替える（世代交代用）。
+    /// 毛や当たりはそのままで、肌のマテリアルと眼鏡の見え方だけを差し替える。
+    /// </summary>
+    void ApplyFace(Transform head, FaceVariant face)
+    {
+        var model = head.Find("HeadModel");
+        if (model == null) return;
+
+        // 顔ごとに頭のかたちが違う場合は、貼り替えでは足りないので作り直す。
+        var wantMesh = MeshOf(face != null && face.model != null ? face.model : headModel);
+        if (wantMesh != null && MeshOf(model.gameObject) != wantMesh)
+        {
+            var skull = head.Find("Skull");
+            DestroyImmediate(model.gameObject);
+            if (skull != null) SwapInModel(head, skull);
+            return;
+        }
+
+        var mat = MakeSkinMaterial(face);
+        bool wearsGlasses = face == null || face.glasses;
+
+        foreach (var r in model.GetComponentsInChildren<Renderer>())
+        {
+            var mf = r.GetComponent<MeshFilter>();
+            int sub = (mf != null && mf.sharedMesh != null) ? mf.sharedMesh.subMeshCount : 1;
+            if (sub >= 2)
+            {
+                var mats = new Material[sub];
+                mats[0] = mat;
+                var frameMat = wearsGlasses ? MakeGlassesMaterial() : null;
+                for (int i = 1; i < sub; i++) mats[i] = frameMat;
+                r.sharedMaterials = mats;
+            }
+            else r.sharedMaterial = mat;
+        }
+
+        // 別メッシュでかぶせている眼鏡があれば、それも合わせる
+        var g = model.Find("Glasses");
+        if (g != null) g.gameObject.SetActive(wearsGlasses);
+    }
+
+    static Mesh MeshOf(GameObject go)
+    {
+        if (go == null) return null;
+        var mf = go.GetComponentInChildren<MeshFilter>();
+        return mf != null ? mf.sharedMesh : null;
     }
 
     /// <summary>
@@ -1360,17 +1480,25 @@ public class PlanetRealHeads : MonoBehaviour
         return m;
     }
 
-    Material MakeSkinMaterial()
+    Material MakeSkinMaterial() { return MakeSkinMaterial(null); }
+
+    Material MakeSkinMaterial(FaceVariant face)
     {
         Shader sh = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
         var m = new Material(sh);
 
-        var tex = skinTexture != null ? skinTexture : LoadTex("monden_face") ?? GenerateSkinTexture();
+        var tex = face != null && face.texture != null ? face.texture
+                : skinTexture != null ? skinTexture : LoadTex("monden_face") ?? GenerateSkinTexture();
         if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", tex);
         if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", tex);
         if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Color.white);
 
-        var nrm = skinNormalMap != null ? skinNormalMap : LoadTex("monden_face_normal");
+        // 凹凸・影・艶の地図は UV の並びに縛られている。顔ごとに頭のかたちが違えば
+        // 並びも違うので、共通のものを流用してはいけない（別人の鼻の影が頬に乗る）。
+        // 自前の地図を持たない顔は、色だけで塗る。
+        bool ownUV = face != null && face.model != null;
+        var nrm = ownUV ? face.normalMap
+                        : (skinNormalMap != null ? skinNormalMap : LoadTex("monden_face_normal"));
         if (nrm != null && m.HasProperty("_BumpMap"))
         {
             m.SetTexture("_BumpMap", nrm);
@@ -1378,7 +1506,8 @@ public class PlanetRealHeads : MonoBehaviour
             m.EnableKeyword("_NORMALMAP");
         }
 
-        var ao = skinOcclusionMap != null ? skinOcclusionMap : LoadTex("monden_face_ao");
+        var ao = ownUV ? face.occlusionMap
+                       : (skinOcclusionMap != null ? skinOcclusionMap : LoadTex("monden_face_ao"));
         if (ao != null && m.HasProperty("_OcclusionMap"))
         {
             m.SetTexture("_OcclusionMap", ao);
@@ -1387,7 +1516,8 @@ public class PlanetRealHeads : MonoBehaviour
         }
 
         // 粗さは一枚の画像で配る。額と鼻筋は照り、頬と目のまわりはマットになる。
-        var msk = skinMaskMap != null ? skinMaskMap : LoadTex("monden_face_mask");
+        var msk = ownUV ? face.maskMap
+                        : (skinMaskMap != null ? skinMaskMap : LoadTex("monden_face_mask"));
         if (msk != null && m.HasProperty("_MetallicGlossMap"))
         {
             m.SetTexture("_MetallicGlossMap", msk);
