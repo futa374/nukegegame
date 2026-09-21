@@ -45,7 +45,10 @@ public class ProtoJourneyLog : MonoBehaviour
     }
 
     [Header("表示")]
-    public int  fontSize = 12;
+    [Tooltip("文字の基準の大きさ。画面の高さ900pxを基準に、大きい画面では自動で拡大する。")]
+    public int  fontSize = 16;
+    [Tooltip("画面下に空けておく余白。0 なら時計の有無を見て自動で決める。")]
+    public float bottomReserve = 0f;
     public int  listRows = 16;
 
     [Header("記録の上限")]
@@ -297,16 +300,33 @@ public class ProtoJourneyLog : MonoBehaviour
     // 画面
     // ------------------------------------------------------------------
 
-    GUIStyle _s, _sHead, _sDim, _sSel;
+    GUIStyle _s, _sHead, _sDim, _sSel, _sHint;
+    int _fs = 12;      // 実際に使う文字の大きさ
+    int _builtFor = -1;
 
     void BuildStyles()
     {
-        if (_s != null) return;
-        _s = new GUIStyle(GUI.skin.label) { fontSize = fontSize, richText = true, wordWrap = false };
+        // 画面が大きいほど文字も大きくする。固定の大きさだと、
+        // 大きな画面ほど relative に小さくなって読めない。
+        _fs = Mathf.Clamp(Mathf.RoundToInt(fontSize * Screen.height / 900f), fontSize, fontSize * 3);
+        if (_s != null && _builtFor == _fs) return;
+        _builtFor = _fs;
+        _s = new GUIStyle(GUI.skin.label) { fontSize = _fs, richText = true, wordWrap = false };
         _s.normal.textColor = new Color(1f, 1f, 1f, 0.88f);
         _sHead = new GUIStyle(_s); _sHead.normal.textColor = new Color(1f, 0.85f, 0.45f, 1f);
         _sDim  = new GUIStyle(_s); _sDim.normal.textColor  = new Color(1f, 1f, 1f, 0.45f);
         _sSel  = new GUIStyle(_s); _sSel.normal.textColor   = new Color(0.2f, 0.15f, 0.05f, 1f);
+        // 上の操作説明は読み流すものなので、本文より一段小さくして場所を取らせない
+        _sHint = new GUIStyle(_sDim) { fontSize = Mathf.Max(10, Mathf.RoundToInt(_fs * 0.8f)) };
+    }
+
+    // 画面の下端には時計が出ている。そこへ一覧を伸ばすと文字が重なって両方読めなくなる。
+    GameClock _clock; bool _clockLooked;
+    float BottomReserve()
+    {
+        if (bottomReserve > 0f) return bottomReserve;
+        if (!_clockLooked) { _clockLooked = true; _clock = FindAnyObjectByType<GameClock>(); }
+        return (_clock != null && _clock.isActiveAndEnabled) ? 88f : 0f;
     }
 
     /// <summary>終わりの場面では画面から引き上げる。読むための表示が、見る邪魔になる。</summary>
@@ -317,15 +337,16 @@ public class ProtoJourneyLog : MonoBehaviour
     {
         if (hidden) return;
         BuildStyles();
-        float lh = fontSize + 6f;
+        float lh = _fs + 7f;
 
         // 操作の説明
         var field = StaticLineField.Instance;
         bool mod = StaticLineField.ModifierHeld();
-        GUI.Label(new Rect(16, 10, 1100, lh),
-            "右クリック(単押し): もやの点を置く   Enter/Esc: 引き終わる   C: もや消去   右ドラッグ: 視点   ホイール: ズーム", _sDim);
-        GUI.Label(new Rect(16, 10 + lh, 1100, lh),
-            "左クリック: 地表の毛を選ぶ   スペース: 頭を叩く   Tab: レポート", _sDim);
+        float hh = _sHint.fontSize + 6f;
+        GUI.Label(new Rect(16, 10, Screen.width - 32, hh),
+            "右クリック(単押し): もやの点を置く   Enter/Esc: 引き終わる   C: もや消去   右ドラッグ: 視点   ホイール: ズーム", _sHint);
+        GUI.Label(new Rect(16, 10 + hh, Screen.width - 32, hh),
+            "左クリック: 地表の毛を選ぶ   スペース: 頭を叩く   Tab: レポート", _sHint);
 
         // いま何本引いているか、修飾キーが届いているか。押しても表示が変わらなければ、
         // その環境では Cmd がエディタに吸われている。右クリック単押しで引ける。
@@ -333,23 +354,55 @@ public class ProtoJourneyLog : MonoBehaviour
             (field.IsDrawing ? $"引いている途中: {field.NodeCount} 点" : "点を置くと引き始める")
             + $"   区間 {field.SegmentCount}"
             + (mod ? "   [Cmd/Ctrl 検出]" : "");
-        GUI.Label(new Rect(16, 10 + lh * 2, 700, lh), state, mod ? _sHead : _sDim);
+        GUI.Label(new Rect(16, 10 + hh * 2, 900, lh), state, mod ? _sHead : _sDim);
 
         if (!_panelOpen)
         {
             _lastPanelRect = new Rect(0, 0, 0, 0);
-            GUI.Label(new Rect(16, 10 + lh * 3, 500, lh), $"着地 {_reports.Count} 本   Tab でレポートを開く", _sDim);
+            GUI.Label(new Rect(16, 10 + hh * 2 + lh, 700, lh), $"着地 {_reports.Count} 本   Tab でレポートを開く", _sDim);
             return;
         }
 
-        // ---- 一覧 ----
-        float panelW = 300f, panelH = listRows * lh + 44f;
-        float x = 16f, y = Screen.height - panelH - 16f;
-        _lastPanelRect = new Rect(x, y, panelW + 18f + 460f, panelH);
+        // ---- レポート ----
+        // 地球は画面の中央にいる。横へ並べると必ず重なるので、
+        // 左端の一列に、全文を上・一覧を下として縦に積む。
+        float x = 16f;
+        float colW = Mathf.Clamp(Screen.width * 0.24f, 300f, 620f);
+        float gap = 8f;
+        float bottom = Screen.height - 16f - BottomReserve();
+        float topLimit = 10f + hh * 2f + lh + 12f;    // 上の説明文より下を使う
+
+        bool hasSel = _selected >= 0 && _selected < _reports.Count;
+        int detailLines = 0;
+        if (hasSel)
+        {
+            int ev = _reports[_selected].events != null ? _reports[_selected].events.Count : 0;
+            detailLines = 13 + Mathf.Min(ev, 11);
+        }
+        float detailH = hasSel ? detailLines * lh + 16f : 0f;
+
+        // 入りきらないときは一覧の行数を削る。全文の方が読むものなので優先する。
+        int rows = listRows;
+        float avail = bottom - topLimit - (hasSel ? detailH + gap : 0f);
+        float listH = rows * lh + lh + 16f;
+        if (listH > avail)
+        {
+            rows = Mathf.Max(4, Mathf.FloorToInt((avail - lh - 16f) / lh));
+            listH = rows * lh + lh + 16f;
+        }
+
+        float listY = bottom - listH;
+        float detailY = listY - gap - detailH;
+        _lastPanelRect = hasSel ? new Rect(x, detailY - 6f, colW, listY + listH - detailY + 6f)
+                                : new Rect(x, listY, colW, listH);
+
+        float panelW = colW;
+        float y = listY, panelH = listH;
         GUI.Box(new Rect(x, y, panelW, panelH), GUIContent.none);
         GUI.Label(new Rect(x + 10, y + 6, panelW - 20, lh), $"旅路レポート   全 {_reports.Count} 件", _sHead);
 
-        var view = new Rect(x + 6, y + 6 + lh, panelW - 12, panelH - 16f - lh);
+        // 見出しのすぐ下から始めると、送った途中の行が見出しに重なって読めなくなる。少し空ける。
+        var view = new Rect(x + 6, y + 10f + lh, panelW - 12, panelH - 22f - lh);
         var content = new Rect(0, 0, panelW - 32, Mathf.Max(_reports.Count, 1) * lh);
         // 地表の毛から選んだときは、一覧をその行まで送る
         if (_scrollToSelected && _selected >= 0)
@@ -370,20 +423,20 @@ public class ProtoJourneyLog : MonoBehaviour
         }
         GUI.EndScrollView();
 
-        // ---- 全文 ----
-        if (_selected < 0 || _selected >= _reports.Count)
+        // ---- 全文（一覧の上に積む）----
+        if (!hasSel)
         {
-            GUI.Label(new Rect(x + panelW + 18, y + 6, 420, lh), "一覧から一本を選ぶ（↑↓キーでも移動）", _sDim);
+            GUI.Label(new Rect(x + 10, listY - lh - 4f, colW, lh), "一覧から一本を選ぶ（↑↓キーでも移動）", _sDim);
             return;
         }
 
         var r = _reports[_selected];
-        float dx = x + panelW + 18, dy = y + 6;
-        float w = 460f;
-        GUI.Box(new Rect(dx - 8, dy - 6, w, panelH), GUIContent.none);
+        float dx = x + 10f, dy = detailY + 8f;
+        float w = colW;
+        GUI.Box(new Rect(x, detailY, w, detailH), GUIContent.none);
 
         int line = 0;
-        void L(string t, GUIStyle st = null) { GUI.Label(new Rect(dx, dy + line * lh, w - 16, lh), t, st ?? _s); line++; }
+        void L(string t, GUIStyle st = null) { GUI.Label(new Rect(dx, dy + line * lh, w - 20, lh), t, st ?? _s); line++; }
 
         L($"標本 #{r.index:D3}", _sHead);
         L($"由来        {r.owner}", _s);

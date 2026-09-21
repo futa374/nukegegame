@@ -163,6 +163,18 @@ public class ProtoFieldOverlay : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 外から作った毛を、この場の落下の仕組みに引き渡す。
+    /// オープニングで見せていた一本を、そのまま地表へ降る一本目にするために使う。
+    /// </summary>
+    public void AdoptHair(PlanetHair h)
+    {
+        if (h == null || h.GetComponent<FieldHair>() != null) return;
+        if (_heads == null || _heads.Length == 0)
+            _heads = FindObjectsByType<OrbitingHead>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        Attach(h);
+    }
+
     void Attach(PlanetHair h)
     {
         Vector3 pos = h.transform.position;
